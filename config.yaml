@@ -1,0 +1,15 @@
+dataset_parameters:
+  hec_result_path: 'data/datasets/Model_01.p01.hdf'
+  nodes_shape_path: 'data/datasets/geometry/cell_centers.shp'
+  edges_shape_path: 'data/datasets/geometry/links.shp'
+
+selected_node_features : 
+  slope_x       : True    # slope in x-direction
+  slope_y       : True    # slope in y-direction
+  area          : False   # cell area
+  DEM           : True    # cell elevation
+
+selected_edge_features : 
+  cell_length   : True    # edge length
+  normal_x      : True    # unit outward normal x-direction
+  normal_y      : True    # unit outward normal y-direction
