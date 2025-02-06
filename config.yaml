@@ -3,13 +3,16 @@ dataset_parameters:
   nodes_shape_path: 'data/datasets/geometry/cell_centers.shp'
   edges_shape_path: 'data/datasets/geometry/links.shp'
 
-selected_node_features : 
-  slope_x       : True    # slope in x-direction
-  slope_y       : True    # slope in y-direction
-  area          : False   # cell area
-  DEM           : True    # cell elevation
+node_features:
+  area          : True    # Cell area per node
+  roughness     : True    # Manning's roughness
+  elevation     : True    # Node elevation
+  water_level   : True    # Water level at each node
 
-selected_edge_features : 
-  cell_length   : True    # edge length
-  normal_x      : True    # unit outward normal x-direction
-  normal_y      : True    # unit outward normal y-direction
+edge_features:
+  direction_x   : True    # Link direction along x-axis
+  direction_y   : True    # Link direction along y-axis
+  face_length   : True    # Link face length
+  length        : True    # Link length
+  slope         : True    # Link slope
+  velocity      : True    # Water velocity at each link
