@@ -4,9 +4,10 @@ warnings.filterwarnings('ignore')
 # --------------------------------
 
 import yaml
+import traceback
 
 from argparse import ArgumentParser
-from data.flood_dataset import FloodDataset
+from data.temporal_graph_dataset import TemporalGraphDataset
 
 def get_arg_parser() -> ArgumentParser:
     parser = ArgumentParser(description='')
@@ -14,19 +15,21 @@ def get_arg_parser() -> ArgumentParser:
     return parser
 
 def main():
-    parser = get_arg_parser()
-    args = parser.parse_args()
+    try:
+        parser = get_arg_parser()
+        args = parser.parse_args()
 
-    with open(args.config_path) as f:
-        try:
+        with open(args.config_path) as f:
             config = yaml.safe_load(f)
-        except:
-            print('Error loading config YAML file.')
-    
-    dataset = FloodDataset(node_features=config['node_features'],
-                           edge_features=config['edge_features'],
-                           **config['dataset_parameters']).load()
-    print(len(dataset))
+        
+        dataset = TemporalGraphDataset(node_features=config['node_features'],
+                            edge_features=config['edge_features'],
+                            **config['dataset_parameters']).load()
+        print(len(dataset))
+    except yaml.YAMLError as e:
+        print('Error loading config YAML file. Error: ', e)
+    except Exception:
+        print('Unexpected error:\n', traceback.format_exc())
 
 
 if __name__ == '__main__':
