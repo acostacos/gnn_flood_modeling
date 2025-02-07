@@ -4,7 +4,7 @@ from constants import FeatureClass, FeatureType, FeatureSource
 from pathlib import Path
 from torch_geometric.data import Data
 from typing import Tuple
-from utils import file_helper
+from utils import file_utils
 
 from .feature_transform import TRANSFORM_MAP
 
@@ -22,13 +22,13 @@ class TemporalGraphDataset:
         included_features[FeatureClass.EDGE] = self.get_feature_list(edge_features)
         self.feature_metadata = self.get_feature_metadata(included_features)
 
-    def get_feature_list(self, feature: dict[str, bool]):
+    def get_feature_list(self, feature: dict[str, bool]) -> list[str]:
         return [name for name, is_included in feature.items() if is_included]
     
     def get_feature_metadata(self, included_features: dict) -> dict:
         FEATURE_METADATA_FILE = "feature_metadata.json"
         feature_metadata_path = Path(__file__).parent / FEATURE_METADATA_FILE
-        json_metadata = file_helper.read_json_file(feature_metadata_path)
+        json_metadata = file_utils.read_json_file(feature_metadata_path)
 
         feature_metadata = {}
         for feature_class in FeatureClass:
@@ -54,6 +54,7 @@ class TemporalGraphDataset:
         for i, ts in enumerate(timesteps):
             ts_df_nodes = dynamic_nodes[i]
             ts_df_edges = dynamic_edges[i]
+            # Convention = [static_features, dynamic_features]
             node_features = np.concatenate([static_nodes, ts_df_nodes], axis=1)
             edge_features = np.concatenate([static_edges, ts_df_edges], axis=1)
             data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_features, pos=pos)
@@ -79,11 +80,11 @@ class TemporalGraphDataset:
 
     def load_feature_data(self, source: FeatureSource, feature_class: FeatureClass, **kwargs) -> np.ndarray:
         if source == FeatureSource.HDF:
-            return file_helper.read_hdf_file_as_numpy(filepath=self.hdf_filepath, property_path=kwargs['path'])
+            return file_utils.read_hdf_file_as_numpy(filepath=self.hdf_filepath, property_path=kwargs['path'])
         if source == FeatureSource.SHP:
             filepath_key = kwargs['shp_file'] if 'shp_file' in kwargs else feature_class
             filepath = self.shp_filepath[filepath_key]
-            return file_helper.read_shp_file_as_numpy(filepath=filepath, columns=kwargs['column'])
+            return file_utils.read_shp_file_as_numpy(filepath=filepath, columns=kwargs['column'])
         raise Exception('Invalid file type in feature metadata. Valid values are: hdf, shp.')
 
     def format_features(self, features: dict) -> Tuple[np.ndarray, np.ndarray, list[np.ndarray]]:
