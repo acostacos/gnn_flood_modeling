@@ -34,5 +34,5 @@ GCN:
   hidden_features: 64
   mlp_layers: 2
   mlp_activation: 'prelu'
-  gnn_layers: 1
+  gnn_layers: 8
   gnn_activation: 'prelu'
