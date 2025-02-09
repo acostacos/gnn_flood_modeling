@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 
 from constants import FeatureClass, FeatureType, FeatureSource
@@ -27,6 +28,7 @@ class TemporalGraphDataset:
             'num_dynamic_node_features': 0,
             'num_static_edge_features': 0,
             'num_dynamic_edge_features': 0,
+            'previous_timesteps': previous_timesteps,
         }
 
         included_features = {}
@@ -37,7 +39,7 @@ class TemporalGraphDataset:
 
     def get_feature_list(self, feature: dict[str, bool]) -> list[str]:
         return [name for name, is_included in feature.items() if is_included]
-    
+
     def get_feature_metadata(self, included_features: dict) -> dict:
         FEATURE_METADATA_FILE = "feature_metadata.json"
         feature_metadata_path = Path(__file__).parent / FEATURE_METADATA_FILE
@@ -60,7 +62,7 @@ class TemporalGraphDataset:
             feature_metadata[feature_class] = local_metadata
 
         return feature_metadata
-    
+
 
     def load(self) -> list[Data]:
         _, _, raw_graph = self.get_features(FeatureClass.GRAPH)
@@ -72,28 +74,27 @@ class TemporalGraphDataset:
         _, num_edges, num_df_edges = dynamic_edges.shape
 
         dataset = []
-        prev_ts_df_nodes = np.zeros((num_nodes, num_df_nodes * self.previous_timesteps))
-        prev_ts_df_edges = np.zeros((num_edges, num_df_edges * self.previous_timesteps))
-        # Last time step is only used as a label
-        for i in range(len(timesteps) - 1):
+        prev_ts_df_nodes = torch.zeros((num_nodes, num_df_nodes * self.previous_timesteps))
+        prev_ts_df_edges = torch.zeros((num_edges, num_df_edges * self.previous_timesteps))
+        for i in range(len(timesteps)-1): # Last time step is only used as a label
             ts = timesteps[i]
             ts_df_nodes = dynamic_nodes[i]
             ts_df_edges = dynamic_edges[i]
             next_ts_df_nodes = dynamic_nodes[i+1]
 
             # Convention = [static_features, previous_dynamic_features, current_dynamic_features]
-            node_features = np.concatenate([static_nodes, prev_ts_df_nodes, ts_df_nodes], axis=1)
-            edge_features = np.concatenate([static_edges, prev_ts_df_edges, ts_df_edges], axis=1)
+            node_features = torch.cat([static_nodes, prev_ts_df_nodes, ts_df_nodes], dim=1)
+            edge_features = torch.cat([static_edges, prev_ts_df_edges, ts_df_edges], dim=1)
             data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_features, y=next_ts_df_nodes, pos=pos)
             dataset.append(data)
 
             # Replace previous timestep dynamic features
-            prev_ts_df_nodes = np.concatenate([ts_df_nodes, prev_ts_df_nodes[:, :-num_df_nodes]], axis=1)
-            prev_ts_df_edges = np.concatenate([ts_df_edges, prev_ts_df_edges[:, :-num_df_edges]], axis=1)
+            prev_ts_df_nodes = torch.cat([ts_df_nodes, prev_ts_df_nodes[:, :-num_df_nodes]], dim=1)
+            prev_ts_df_edges = torch.cat([ts_df_edges, prev_ts_df_edges[:, :-num_df_edges]], dim=1)
 
         return dataset, self.dataset_info
-    
-    def get_features(self, feature_class: FeatureClass) -> Tuple[np.ndarray, np.ndarray, list[np.ndarray]]:
+
+    def get_features(self, feature_class: FeatureClass) -> Tuple[torch.Tensor, torch.Tensor, list]:
         features = { FeatureType.STATIC: [], FeatureType.DYNAMIC: [], FeatureType.RAW: [] }
         for name, metadata in self.feature_metadata[feature_class].items():
             data = self.load_feature_data(source=metadata['file'], feature_class=feature_class, **metadata)
@@ -118,18 +119,18 @@ class TemporalGraphDataset:
             return file_utils.read_shp_file_as_numpy(filepath=filepath, columns=kwargs['column'])
         raise Exception('Invalid file type in feature metadata. Valid values are: hdf, shp.')
 
-    def format_features(self, features: dict) -> Tuple[np.ndarray, np.ndarray, list[np.ndarray]]:
-        # Static features = (num_nodes, num_features)
-        static_features = np.array(features[FeatureType.STATIC])
+    def format_features(self, features: dict) -> Tuple[torch.Tensor, torch.Tensor, list]:
+        # Static features = (num_items, num_features)
+        static_features = torch.from_numpy(np.array(features[FeatureType.STATIC]))
         if len(static_features) > 0:
-            static_features = static_features.transpose([1, 0])
+            static_features = static_features.transpose(1, 0)
 
-        # Dynamic features = (num_timesteps, num_nodes, num_features)
-        dynamic_features = np.array(features[FeatureType.DYNAMIC])
+        # Dynamic features = (num_timesteps, num_items, num_features)
+        dynamic_features = torch.from_numpy(np.array(features[FeatureType.DYNAMIC]))
         if len(dynamic_features) > 0:
-            dynamic_features = dynamic_features.transpose([1, 2, 0])
+            dynamic_features = dynamic_features.permute([1, 2, 0])
 
-        # Raw features = list of numpy arrays
+        # Raw features
         raw_features = features[FeatureType.RAW]
 
         return static_features, dynamic_features, raw_features

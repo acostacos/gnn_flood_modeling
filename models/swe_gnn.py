@@ -2,9 +2,8 @@ import torch
 
 from torch import Tensor
 from torch.linalg import vector_norm
-from torch.nn import Module, ModuleList
+from torch.nn import Module, ModuleList, Sequential
 from torch_geometric.data import Data
-from torch_geometric.nn import Sequential
 from torch_scatter import scatter
 from utils.model_utils import make_mlp, get_activation_func
 
@@ -29,7 +28,7 @@ class SWEGNN(BaseModel):
         super().__init__(**base_model_kwargs)
 
         # Encoder
-        edge_features = self.static_edge_features + self.dynamic_edge_features
+        edge_features = self.static_edge_features + (self.dynamic_edge_features * (self.previous_timesteps+1))
         self.edge_encoder = make_mlp(input_size=edge_features, output_size=hidden_features,
                                      hidden_size=hidden_features, num_layers=mlp_layers,
                                      activation=mlp_activation, device=self.device)
@@ -37,7 +36,8 @@ class SWEGNN(BaseModel):
                                             hidden_size=hidden_features, num_layers=mlp_layers,
                                             activation=mlp_activation, device=self.device)
         # No bias for dynamic features
-        self.dynamic_node_encoder = make_mlp(input_size=self.dynamic_node_features, output_size=hidden_features,
+        num_dynamic_features = self.dynamic_node_features * (self.previous_timesteps+1)
+        self.dynamic_node_encoder = make_mlp(input_size=num_dynamic_features, output_size=hidden_features,
                                              hidden_size=hidden_features, num_layers=mlp_layers,
                                              activation=mlp_activation, bias=False, device=self.device)
 
@@ -56,14 +56,13 @@ class SWEGNN(BaseModel):
     def _make_gnns(self, hidden_size: int, K_hops: int, num_layers: int, mlp_layers: int, mlp_activation: str):
         """Builds GNN module"""
         convs = ModuleList()
-        edge_features = self.static_edge_features + self.dynamic_edge_features
         for _ in range(num_layers):
             convs.append(SWEGNNProcessor(static_node_features=hidden_size, dynamic_node_features=hidden_size, # Because of encoder
-                                         edge_features=edge_features, K=K_hops, mlp_layers=mlp_layers,
+                                         edge_features=hidden_size, K=K_hops, mlp_layers=mlp_layers,
                                           mlp_activation=mlp_activation, device=self.device))
         return convs
 
-    def forward(self, graph: Data):
+    def forward(self, graph: Data) -> Tensor:
         x = graph.x.clone()
         edge_index = graph.edge_index.clone()
         edge_attr = graph.edge_attr.clone()
@@ -72,7 +71,7 @@ class SWEGNN(BaseModel):
         
         return x
 
-    def _forward_block(self, x: Tensor, edge_index: Tensor, edge_attr: Tensor):
+    def _forward_block(self, x: Tensor, edge_index: Tensor, edge_attr: Tensor) -> Tensor:
         """Build encoder-decoder block"""
         # 1. Node and edge encoder
         edge_attr = self.edge_encoder(edge_attr)
@@ -85,7 +84,7 @@ class SWEGNN(BaseModel):
         x = x_t = self.dynamic_node_encoder(x_t)
 
         # 2. Processor 
-        for i, conv in enumerate(self.gnn_processor):
+        for i, conv in enumerate(self.gnn_processors):
             x = conv(x_s, x_t, edge_index, edge_attr)
 
             # Add non-linearity
@@ -135,7 +134,8 @@ class SWEGNNProcessor(Module):
                                 activation=mlp_activation, bias=True, device=device)
 
         self.filter_matrix = ModuleList([
-            make_mlp(input_size=dynamic_node_features, output_size=dynamic_node_features, bias=False) for _ in range(K+1)
+            make_mlp(input_size=dynamic_node_features, output_size=dynamic_node_features,
+                     bias=False, device=device) for _ in range(K+1)
         ])
 
     def forward(self, x_s: Tensor, x_t: Tensor, edge_index: Tensor, 

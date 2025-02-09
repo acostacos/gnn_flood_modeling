@@ -6,6 +6,7 @@ class BaseModel(Module):
                  dynamic_node_features: int,
                  static_edge_features: int,
                  dynamic_edge_features: int,
+                 previous_timesteps: int,
                  device: str = 'cpu'):
         super().__init__()
         self.device = device
@@ -13,6 +14,7 @@ class BaseModel(Module):
         self.dynamic_node_features = dynamic_node_features
         self.static_edge_features = static_edge_features
         self.dynamic_edge_features = dynamic_edge_features
+        self.previous_timesteps = previous_timesteps
 
     def _mask_small_WD(self, x, epsilon=0.001):        
         x[:,0][x[:,0].abs() < epsilon] = 0

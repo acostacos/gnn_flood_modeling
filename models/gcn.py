@@ -1,3 +1,4 @@
+from torch import Tensor
 from torch_geometric.data import Data
 from torch_geometric.nn import Sequential, GCNConv
 from utils.model_utils import make_mlp, get_activation_func
@@ -19,14 +20,14 @@ class GCN(BaseModel):
         super().__init__(**base_model_kwargs)
 
         # Encoder
-        node_features = self.static_node_features + self.dynamic_node_features
+        node_features = self.static_node_features + (self.dynamic_node_features * (self.previous_timesteps+1))
         self.node_encoder = make_mlp(input_size=node_features, output_size=hidden_features,
                                             hidden_size=hidden_features, num_layers=mlp_layers,
                                             activation=mlp_activation, device=self.device)
 
-        self.convs = Sequential(
-            *([
-                GCNConv(in_channels=hidden_features, out_channels=hidden_features),
+        self.convs = Sequential('x, edge_index',
+            ([
+                (GCNConv(in_channels=hidden_features, out_channels=hidden_features).to(self.device), 'x, edge_index -> x'),
                 get_activation_func(gnn_activation, device=self.device),
             ] * gnn_layers)
         )
@@ -36,7 +37,7 @@ class GCN(BaseModel):
                                      hidden_size=hidden_features, num_layers=mlp_layers,
                                      activation=mlp_activation, bias=False, device=self.device)
 
-    def forward(self, graph: Data):
+    def forward(self, graph: Data) -> Tensor:
         x = graph.x.clone()
         edge_index = graph.edge_index.clone()
 

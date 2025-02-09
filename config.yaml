@@ -3,7 +3,6 @@ dataset_parameters:
   nodes_shp_path: 'data/datasets/geometry/cell_centers.shp'
   edges_shp_path: 'data/datasets/geometry/links.shp'
   previous_timesteps: 2
-  prediction_parameter: 
 
 node_features:
   area          : True    # Cell area per node
@@ -37,4 +36,3 @@ GCN:
   mlp_activation: 'prelu'
   gnn_layers: 1
   gnn_activation: 'prelu'
-  num_message_pass: 8

@@ -12,7 +12,7 @@ def read_json_file(filepath: str) -> dict:
 
 def read_shp_file_as_numpy(filepath: str, columns: str | list) -> np.ndarray:
     file = gpd.read_file(filepath)
-    np_data = file[columns].to_numpy()
+    np_data = file[columns].to_numpy(dtype='float32')
     return np_data
 
 def read_hdf_file_as_numpy(filepath: str, property_path: str, separator: str = '.') -> np.ndarray:
