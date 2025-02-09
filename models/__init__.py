@@ -1,3 +1,4 @@
-from .swe_gnn import SWE_GNN
+from .gcn import GCN
+from .swe_gnn import SWEGNN
 
-__all__ = ['SWE_GNN']
+__all__ = ['GCN', 'SWEGNN']

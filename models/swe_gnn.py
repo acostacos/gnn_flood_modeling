@@ -2,7 +2,9 @@ import torch
 
 from torch import Tensor
 from torch.linalg import vector_norm
-from torch.nn import Module, ModuleList, Sequential
+from torch.nn import Module, ModuleList
+from torch_geometric.data import Data
+from torch_geometric.nn import Sequential
 from torch_scatter import scatter
 from utils.model_utils import make_mlp, get_activation_func
 
@@ -22,9 +24,8 @@ class SWEGNN(BaseModel):
                  gnn_layers: int = 1,
                  gnn_activation: str = 'prelu',
                  num_message_pass: int = 8,
-                 dropout=0,
+                 dropout=0, # TODO: Check if you need this
                  **base_model_kwargs):
-        # TODO: Enforce me
         super().__init__(**base_model_kwargs)
 
         # Encoder
@@ -44,8 +45,7 @@ class SWEGNN(BaseModel):
         self.gnn_processors = self._make_gnns(hidden_size=hidden_features, K_hops=num_message_pass,
                                               num_layers=gnn_layers, mlp_layers=mlp_layers, mlp_activation=mlp_activation)
 
-        # TODO: Check if this returns correct list
-        self.gnn_activations = Sequential([get_activation_func(gnn_activation, device=self.device)] * gnn_layers)
+        self.gnn_activations = Sequential(*([get_activation_func(gnn_activation, device=self.device)] * gnn_layers))
 
         # Decoder
         # No bias for dynamic features
@@ -60,10 +60,10 @@ class SWEGNN(BaseModel):
         for _ in range(num_layers):
             convs.append(SWEGNNProcessor(static_node_features=hidden_size, dynamic_node_features=hidden_size, # Because of encoder
                                          edge_features=edge_features, K=K_hops, mlp_layers=mlp_layers,
-                                          mlp_activation=mlp_activation, device=self.device,))
+                                          mlp_activation=mlp_activation, device=self.device))
         return convs
 
-    def forward(self, graph):
+    def forward(self, graph: Data):
         x = graph.x.clone()
         edge_index = graph.edge_index.clone()
         edge_attr = graph.edge_attr.clone()
@@ -72,7 +72,7 @@ class SWEGNN(BaseModel):
         
         return x
 
-    def _forward_block(self, x, edge_index, edge_attr):
+    def _forward_block(self, x: Tensor, edge_index: Tensor, edge_attr: Tensor):
         """Build encoder-decoder block"""
         # 1. Node and edge encoder
         edge_attr = self.edge_encoder(edge_attr)
@@ -134,7 +134,6 @@ class SWEGNNProcessor(Module):
                                 hidden_size=hidden_size, num_layers=mlp_layers,
                                 activation=mlp_activation, bias=True, device=device)
 
-        # TODO: Check if this only returns list of Linear
         self.filter_matrix = ModuleList([
             make_mlp(input_size=dynamic_node_features, output_size=dynamic_node_features, bias=False) for _ in range(K+1)
         ])

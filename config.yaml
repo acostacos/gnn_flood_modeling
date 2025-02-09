@@ -1,7 +1,9 @@
 dataset_parameters:
-  hec_result_path: 'data/datasets/Model_01.p01.hdf'
-  nodes_shape_path: 'data/datasets/geometry/cell_centers.shp'
-  edges_shape_path: 'data/datasets/geometry/links.shp'
+  hec_ras_hdf_path: 'data/datasets/Model_01.p01.hdf'
+  nodes_shp_path: 'data/datasets/geometry/cell_centers.shp'
+  edges_shp_path: 'data/datasets/geometry/links.shp'
+  previous_timesteps: 2
+  prediction_parameter: 
 
 node_features:
   area          : True    # Cell area per node
@@ -16,3 +18,23 @@ edge_features:
   length        : True    # Link length
   slope         : True    # Link slope
   velocity      : True    # Water velocity at each link
+
+training_parameters:
+  learning_rate   : 0.007         # learning rate
+  weight_decay    : 0             # weight decay
+
+SWEGNN:
+  hidden_features: 64
+  mlp_layers: 2
+  mlp_activation: 'prelu'
+  gnn_layers: 1
+  gnn_activation: 'prelu'
+  num_message_pass: 8
+
+GCN:
+  hidden_features: 64
+  mlp_layers: 2
+  mlp_activation: 'prelu'
+  gnn_layers: 1
+  gnn_activation: 'prelu'
+  num_message_pass: 8

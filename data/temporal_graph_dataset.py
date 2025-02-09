@@ -9,11 +9,24 @@ from utils import file_utils
 from .feature_transform import TRANSFORM_MAP
 
 class TemporalGraphDataset:
-    def __init__(self, hec_result_path='', nodes_shape_path='', edges_shape_path='', node_features={}, edge_features={}):
-        self.hdf_filepath = hec_result_path
+    def __init__(self,
+                 hec_ras_hdf_path: str = '',
+                 nodes_shp_path: str = '',
+                 edges_shp_path: str = '',
+                 previous_timesteps: int = 0,
+                 node_features: dict[str, bool] = {},
+                 edge_features: dict[str, bool] = {}):
+        self.hdf_filepath = hec_ras_hdf_path
         self.shp_filepath = {
-            FeatureClass.NODE: nodes_shape_path,
-            FeatureClass.EDGE: edges_shape_path,
+            FeatureClass.NODE: nodes_shp_path,
+            FeatureClass.EDGE: edges_shp_path,
+        }
+        self.previous_timesteps = previous_timesteps
+        self.dataset_info = {
+            'num_static_node_features': 0,
+            'num_dynamic_node_features': 0,
+            'num_static_edge_features': 0,
+            'num_dynamic_edge_features': 0,
         }
 
         included_features = {}
@@ -39,10 +52,15 @@ class TemporalGraphDataset:
             for name, data in json_metadata[feature_class].items():
                 if name in included_features[feature_class]:
                     local_metadata |= {name: data}
-            
+
+                    if feature_class in [FeatureClass.NODE, FeatureClass.EDGE] and \
+                          data['type'] in [FeatureType.STATIC, FeatureType.DYNAMIC]:
+                        self.dataset_info[f'num_{data['type']}_{feature_class}'] += 1
+
             feature_metadata[feature_class] = local_metadata
-        
+
         return feature_metadata
+    
 
     def load(self) -> list[Data]:
         _, _, raw_graph = self.get_features(FeatureClass.GRAPH)
@@ -50,17 +68,30 @@ class TemporalGraphDataset:
         static_edges, dynamic_edges, _ = self.get_features(FeatureClass.EDGE)
 
         timesteps, edge_index, pos = raw_graph
+        _, num_nodes, num_df_nodes = dynamic_nodes.shape
+        _, num_edges, num_df_edges = dynamic_edges.shape
+
         dataset = []
-        for i, ts in enumerate(timesteps):
+        prev_ts_df_nodes = np.zeros((num_nodes, num_df_nodes * self.previous_timesteps))
+        prev_ts_df_edges = np.zeros((num_edges, num_df_edges * self.previous_timesteps))
+        # Last time step is only used as a label
+        for i in range(len(timesteps) - 1):
+            ts = timesteps[i]
             ts_df_nodes = dynamic_nodes[i]
             ts_df_edges = dynamic_edges[i]
-            # Convention = [static_features, dynamic_features]
-            node_features = np.concatenate([static_nodes, ts_df_nodes], axis=1)
-            edge_features = np.concatenate([static_edges, ts_df_edges], axis=1)
-            data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_features, pos=pos)
+            next_ts_df_nodes = dynamic_nodes[i+1]
+
+            # Convention = [static_features, previous_dynamic_features, current_dynamic_features]
+            node_features = np.concatenate([static_nodes, prev_ts_df_nodes, ts_df_nodes], axis=1)
+            edge_features = np.concatenate([static_edges, prev_ts_df_edges, ts_df_edges], axis=1)
+            data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_features, y=next_ts_df_nodes, pos=pos)
             dataset.append(data)
 
-        return dataset
+            # Replace previous timestep dynamic features
+            prev_ts_df_nodes = np.concatenate([ts_df_nodes, prev_ts_df_nodes[:, :-num_df_nodes]], axis=1)
+            prev_ts_df_edges = np.concatenate([ts_df_edges, prev_ts_df_edges[:, :-num_df_edges]], axis=1)
+
+        return dataset, self.dataset_info
     
     def get_features(self, feature_class: FeatureClass) -> Tuple[np.ndarray, np.ndarray, list[np.ndarray]]:
         features = { FeatureType.STATIC: [], FeatureType.DYNAMIC: [], FeatureType.RAW: [] }

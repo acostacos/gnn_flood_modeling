@@ -1,8 +1,3 @@
-# TODO: REMOVE THIS
-import warnings
-warnings.filterwarnings('ignore')
-# --------------------------------
-
 import numpy as np
 import traceback
 import torch
@@ -10,6 +5,7 @@ import yaml
 
 from argparse import ArgumentParser, Namespace
 from data import TemporalGraphDataset
+from models import SWEGNN
 
 def parse_args() -> Namespace:
     parser = ArgumentParser(description='')
