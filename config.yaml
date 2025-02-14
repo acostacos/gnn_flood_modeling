@@ -32,7 +32,7 @@ SWEGNN:
 
 GCN:
   hidden_features: 64
-  mlp_layers: 2
-  mlp_activation: 'prelu'
+  encoder_layers: 2
+  encoder_activation: 'prelu'
   gnn_layers: 8
   gnn_activation: 'prelu'
