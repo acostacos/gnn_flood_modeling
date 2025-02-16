@@ -5,4 +5,5 @@ class GNNConvolution(StrEnum):
     GAT = 'gat'
 
 class Activation(StrEnum):
+    RELU = 'relu'
     PRELU = 'prelu'

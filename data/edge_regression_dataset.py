@@ -7,7 +7,7 @@ from torch_geometric.transforms import ToUndirected
 from .base_dataset import BaseDataset
 
 
-class TemporalGraphDataset(BaseDataset):
+class EdgeRegressionDataset(BaseDataset):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -27,12 +27,12 @@ class TemporalGraphDataset(BaseDataset):
             ts = timesteps[i]
             ts_df_nodes = dynamic_nodes[i]
             ts_df_edges = dynamic_edges[i]
-            next_ts_df_nodes = dynamic_nodes[i+1]
+            next_ts_df_edges = dynamic_edges[i+1]
 
             # Convention = [static_features, previous_dynamic_features, current_dynamic_features]
             node_features = torch.cat([static_nodes, prev_ts_df_nodes, ts_df_nodes], dim=1)
             edge_features = torch.cat([static_edges, prev_ts_df_edges, ts_df_edges], dim=1)
-            data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_features, y=next_ts_df_nodes, pos=pos)
+            data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_features, y=next_ts_df_edges, pos=pos)
 
             # Transform to undirected graph
             data = ToUndirected()(data)

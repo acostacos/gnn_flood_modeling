@@ -28,6 +28,7 @@ class GAT(BaseModel):
                  negative_slope: float = 0.2,
                  attn_residual: bool = True,
 
+
                  # Encoder Decoder Parameters
                  encoder_layers: int = 0,
                  encoder_activation: Activation = None,
@@ -45,6 +46,7 @@ class GAT(BaseModel):
             output_features = self.output_node_features
         # if nhead_out is None:
         #     nhead_out = num_heads
+
 
         input_size = hidden_features if self.with_encoder else input_features
         output_size = hidden_features if self.with_decoder else output_features

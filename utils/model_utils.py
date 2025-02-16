@@ -1,6 +1,6 @@
 from constants import Activation, GNNConvolution
 from torch import Tensor
-from torch.nn import Module, Sequential, Linear, PReLU
+from torch.nn import Module, Sequential, Linear, PReLU, ReLU
 from torch_geometric.nn import GCNConv, GATConv, Sequential as PygSequential
 
 def make_mlp(input_size: int, output_size: int, hidden_size: int = None,
@@ -38,6 +38,8 @@ def make_gnn(input_size: int, output_size: int, hidden_size: int = None,
     return PygSequential('x, edge_index', layers)
 
 def get_activation_func(name: Activation, device: str = 'cpu') -> Module:
+    if name == Activation.RELU:
+        return ReLU()
     if name == Activation.PRELU:
         return PReLU(device=device)
     raise Exception(f'Activation function {name} is not implemented.')
