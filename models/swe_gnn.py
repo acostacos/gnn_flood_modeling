@@ -1,8 +1,9 @@
 import torch
 
+from constants import Activation
 from torch import Tensor
 from torch.linalg import vector_norm
-from torch.nn import Module, ModuleList, Sequential
+from torch.nn import Module, ModuleList, Sequential, Identity
 from torch_geometric.data import Data
 from torch_scatter import scatter
 from utils.model_utils import make_mlp, get_activation_func
@@ -18,48 +19,65 @@ class SWEGNN(BaseModel):
     '''
     def __init__(self,
                  hidden_features: int = 64,
+                 num_layers: int = 1,
+                 num_hops: int = 8,
                  mlp_layers: int = 2,
-                 mlp_activation: str = 'prelu',
-                 gnn_layers: int = 1,
-                 gnn_activation: str = 'prelu',
-                 num_message_pass: int = 8,
+                 activation: Activation = Activation.PRELU,
+                 residual: bool = True,
                  dropout=0, # TODO: Check if you need this
+
+                 # Encoder Decoder Parameters
+                 encoder_layers: int = 2,
+                 encoder_activation: Activation = Activation.PRELU,
+                 decoder_layers: int = 2,
+                 decoder_activation: Activation = Activation.PRELU,
                  **base_model_kwargs):
         super().__init__(**base_model_kwargs)
+        self.with_encoder = encoder_layers > 0
+        self.with_decoder = decoder_layers > 0
 
         # Encoder
-        edge_features = self.static_edge_features + (self.dynamic_edge_features * (self.previous_timesteps+1))
-        self.edge_encoder = make_mlp(input_size=edge_features, output_size=hidden_features,
-                                     hidden_size=hidden_features, num_layers=mlp_layers,
-                                     activation=mlp_activation, device=self.device)
-        self.static_node_encoder = make_mlp(input_size=self.static_node_features, output_size=hidden_features,
-                                            hidden_size=hidden_features, num_layers=mlp_layers,
-                                            activation=mlp_activation, device=self.device)
-        # No bias for dynamic features
-        num_dynamic_features = self.dynamic_node_features * (self.previous_timesteps+1)
-        self.dynamic_node_encoder = make_mlp(input_size=num_dynamic_features, output_size=hidden_features,
-                                             hidden_size=hidden_features, num_layers=mlp_layers,
-                                             activation=mlp_activation, bias=False, device=self.device)
+        if self.with_encoder:
+            self.edge_encoder = make_mlp(input_size=self.input_edge_features, output_size=hidden_features,
+                                        hidden_size=hidden_features, num_layers=encoder_layers,
+                                        activation=encoder_activation, device=self.device)
+            self.static_node_encoder = make_mlp(input_size=self.static_node_features, output_size=hidden_features,
+                                            hidden_size=hidden_features, num_layers=encoder_layers,
+                                            activation=encoder_activation, device=self.device)
+            # No bias for dynamic features
+            total_dynamic_node_feats = self.dynamic_node_features * (self.previous_timesteps+1)
+            self.dynamic_node_encoder = make_mlp(input_size=total_dynamic_node_feats, output_size=hidden_features,
+                                                hidden_size=hidden_features, num_layers=encoder_layers,
+                                                activation=encoder_activation, bias=False, device=self.device)
 
         # Processor = GNN
-        self.gnn_processors = self._make_gnns(hidden_size=hidden_features, K_hops=num_message_pass,
-                                              num_layers=gnn_layers, mlp_layers=mlp_layers, mlp_activation=mlp_activation)
-
-        self.gnn_activations = Sequential(*([get_activation_func(gnn_activation, device=self.device)] * gnn_layers))
+        static_node_features = hidden_features if self.with_encoder else self.static_node_features
+        dynamic_node_features = hidden_features if self.with_encoder else self.dynamic_node_features
+        edge_features = hidden_features if self.with_encoder else self.input_edge_features
+        self.gnn_processors = self._make_gnns(static_node_features=static_node_features, dynamic_node_features=dynamic_node_features,
+                                              edge_features=edge_features, K_hops=num_hops,
+                                              num_layers=num_layers, mlp_layers=mlp_layers, mlp_activation=activation)
+        self.gnn_activations = Sequential(*([get_activation_func(activation, device=self.device)] * num_layers))
 
         # Decoder
         # No bias for dynamic features
-        self.node_decoder = make_mlp(input_size=hidden_features, output_size=self.dynamic_node_features,
-                                     hidden_size=hidden_features, num_layers=mlp_layers,
-                                     activation=mlp_activation, bias=False, device=self.device)
+        if self.with_decoder:
+            self.node_decoder = make_mlp(input_size=hidden_features, output_size=self.output_node_features,
+                                        hidden_size=hidden_features, num_layers=decoder_layers,
+                                        activation=decoder_activation, bias=False, device=self.device)
+        
+        if residual:
+            self.residual = Identity()
 
-    def _make_gnns(self, hidden_size: int, K_hops: int, num_layers: int, mlp_layers: int, mlp_activation: str):
+
+    def _make_gnns(self, static_node_features: int, dynamic_node_features: int, edge_features: int,
+                   K_hops: int, num_layers: int, mlp_layers: int, mlp_activation: str):
         """Builds GNN module"""
         convs = ModuleList()
         for _ in range(num_layers):
-            convs.append(SWEGNNProcessor(static_node_features=hidden_size, dynamic_node_features=hidden_size, # Because of encoder
-                                         edge_features=hidden_size, K=K_hops, mlp_layers=mlp_layers,
-                                          mlp_activation=mlp_activation, device=self.device))
+            convs.append(SWEGNNProcessor(static_node_features=static_node_features, dynamic_node_features=dynamic_node_features,
+                                         edge_features=edge_features, encoded=self.with_encoder, previous_timesteps=self.previous_timesteps,
+                                         K=K_hops, mlp_layers=mlp_layers, mlp_activation=mlp_activation, device=self.device))
         return convs
 
     def forward(self, graph: Data) -> Tensor:
@@ -73,15 +91,16 @@ class SWEGNN(BaseModel):
 
     def _forward_block(self, x: Tensor, edge_index: Tensor, edge_attr: Tensor) -> Tensor:
         """Build encoder-decoder block"""
-        # 1. Node and edge encoder
-        edge_attr = self.edge_encoder(edge_attr)
-        
+
         x0 = x
         x_s = x[:, :self.static_node_features]
         x_t = x[:, self.static_node_features:]
 
-        x_s = self.static_node_encoder(x_s)
-        x = x_t = self.dynamic_node_encoder(x_t)
+        # 1. Node and edge encoder
+        if self.with_encoder:
+            edge_attr = self.edge_encoder(edge_attr)
+            x_s = self.static_node_encoder(x_s)
+            x = x_t = self.dynamic_node_encoder(x_t)
 
         # 2. Processor 
         for i, conv in enumerate(self.gnn_processors):
@@ -93,15 +112,26 @@ class SWEGNN(BaseModel):
             x_t = x
 
         # 3. Decoder
-        x = self.node_decoder(x)
+        if self.with_decoder:
+            x = self.node_decoder(x)
 
         # Add residual connections
-        x = x + x0[:, -self.dynamic_node_features:]
+        if hasattr(self, 'residual'):
+            x = x + self.residual(x0[:, -self.dynamic_node_features:])
 
         # Mask very small water depth
         x = self._mask_small_WD(x, epsilon=0.001)
 
         return x
+
+    def _mask_small_WD(self, x, epsilon=0.001):        
+        x[:,0][x[:,0].abs() < epsilon] = 0
+
+        # Mask velocities where there is no water
+        x[:,1:][x[:,0] == 0] = 0
+
+        return x
+
 
 class SWEGNNProcessor(Module):
     r"""Shallow Water Equations inspired Graph Neural Network
@@ -118,25 +148,36 @@ class SWEGNNProcessor(Module):
                  static_node_features: int,
                  dynamic_node_features: int,
                  edge_features: int,
+                 encoded: bool = True,
+                 previous_timesteps: int = 0,
                  K: int = 8,
                  mlp_layers: int = 2,
                  mlp_activation: str = 'prelu',
                  device='cpu'):
         super().__init__()
-        self.edge_features = edge_features
-        self.edge_input_size = edge_features + static_node_features * 2 + dynamic_node_features * 2
-        self.edge_output_size = dynamic_node_features
         self.K = K
 
-        hidden_size = self.edge_output_size * 2
-        self.edge_mlp = make_mlp(input_size=self.edge_input_size, output_size=self.edge_output_size,
-                                hidden_size=hidden_size, num_layers=mlp_layers,
+        edge_input_size = edge_features + static_node_features * 2 + dynamic_node_features * 2
+        edge_output_size = dynamic_node_features
+        edge_hidden_size = dynamic_node_features * 2
+        self.edge_mlp = make_mlp(input_size=edge_input_size, output_size=edge_output_size,
+                                hidden_size=edge_hidden_size, num_layers=mlp_layers,
                                 activation=mlp_activation, bias=True, device=device)
 
         self.filter_matrix = ModuleList([
             make_mlp(input_size=dynamic_node_features, output_size=dynamic_node_features,
                      bias=False, device=device) for _ in range(K+1)
         ])
+
+        filter_input_size = dynamic_node_features if encoded else (dynamic_node_features * (previous_timesteps+1))
+        self.filter_matrix = ModuleList(
+            [
+                make_mlp(input_size=filter_input_size, output_size=dynamic_node_features, # Initial filter matrix
+                     bias=False, device=device),
+                *[make_mlp(input_size=dynamic_node_features, output_size=dynamic_node_features,
+                        bias=False, device=device) for _ in range(K)],
+            ]
+        )
 
     def forward(self, x_s: Tensor, x_t: Tensor, edge_index: Tensor, 
                 edge_attr: Tensor) -> Tensor:
@@ -176,10 +217,6 @@ class SWEGNNProcessor(Module):
 
             # Multiple with weigthed parameter matrix
             out = out + self.filter_matrix[k+1].forward(scattered)
-        
-        return out
 
-    def __repr__(self):
-        return '{}(node_features={}, edge_features={}, K={})'.format(
-            self.__class__.__name__, self.edge_output_size, self.edge_features, self.K)
+        return out
 

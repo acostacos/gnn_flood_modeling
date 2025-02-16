@@ -10,7 +10,8 @@ from models import SWEGNN
 def parse_args() -> Namespace:
     parser = ArgumentParser(description='')
     parser.add_argument('--config_path', type=str, default='config.yaml', help='Path to config file')
-    parser.add_argument("--seed", type=int, default=None, help="Random seed")
+    parser.add_argument("--debug", type=bool, default=False, help='Add debug messages to output')
+    parser.add_argument("--seed", type=int, default=None, help='Seed for random number generators')
     return parser.parse_args()
 
 def main():

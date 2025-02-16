@@ -22,17 +22,40 @@ training_parameters:
   learning_rate   : 0.007         # learning rate
   weight_decay    : 0             # weight decay
 
-SWEGNN:
-  hidden_features: 64
-  mlp_layers: 2
-  mlp_activation: 'prelu'
-  gnn_layers: 1
-  gnn_activation: 'prelu'
-  num_message_pass: 8
+model_parameters:
+  SWEGNN:
+    hidden_features: 64
+    num_layers: 1
+    num_hops: 8
+    mlp_layers: 2
+    activation: 'prelu'
+    residual: True
+    encoder_layers: 2
+    encoder_activation: 'prelu'
+    decoder_layers: 2
+    decoder_activation: 'prelu'
 
-GCN:
-  hidden_features: 64
-  encoder_layers: 2
-  encoder_activation: 'prelu'
-  gnn_layers: 8
-  gnn_activation: 'prelu'
+  GCN:
+    hidden_features: 32
+    num_layers: 2
+    activation: 'prelu'
+    residual: True
+    encoder_layers: 2
+    encoder_activation: 'prelu'
+    decoder_layers: 2
+    decoder_activation: 'prelu'
+
+  GAT:
+    hidden_features: 32
+    num_layers: 2
+    activation: 'prelu'
+    residual: True
+    num_heads: 1
+    concat: True
+    dropout: 0.0
+    negative_slope: 0.2
+    attn_residual: True
+    encoder_layers: 2
+    encoder_activation: 'prelu'
+    decoder_layers: 2
+    decoder_activation: 'prelu'

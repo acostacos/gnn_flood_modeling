@@ -1,8 +1,8 @@
+from constants import GNNConvolution, Activation
 from torch import Tensor
 from torch.nn import Identity
 from torch_geometric.data import Data
-from torch_geometric.nn import Sequential, GCNConv
-from utils.model_utils import make_mlp, get_activation_func
+from utils.model_utils import make_mlp, make_gnn 
 
 from .base_model import BaseModel
 
@@ -12,49 +12,65 @@ class GCN(BaseModel):
     Most Basic Graph Neural Network w/ Encoder-Decoder
     '''
     def __init__(self,
-                 hidden_features: int = 64,
+                 input_features: int = None,
+                 output_features: int = None,
+                 hidden_features: int = None,
+                 num_layers: int = 1,
+                 activation: Activation = Activation.PRELU,
+                 residual: bool = True,
+
+                 # Encoder Decoder Parameters
                  encoder_layers: int = 2,
-                 encoder_activation: str = 'prelu',
-                 gnn_layers: int = 1,
-                 gnn_activation: str = 'prelu',
+                 encoder_activation: Activation = Activation.PRELU,
+                 decoder_layers: int = 2,
+                 decoder_activation: Activation = Activation.PRELU,
+
                  **base_model_kwargs):
         super().__init__(**base_model_kwargs)
+        self.with_encoder = encoder_layers > 0
+        self.with_decoder = decoder_layers > 0
+
+        if input_features is None:
+            input_features = self.input_node_features
+        if output_features is None:
+            output_features = self.output_node_features
+
+        input_size = hidden_features if self.with_encoder else input_features
+        output_size = hidden_features if self.with_decoder else output_features
 
         # Encoder
-        with_encoder_decoder = encoder_layers > 0
-        if with_encoder_decoder:
-            node_features = self.static_node_features + (self.dynamic_node_features * (self.previous_timesteps+1))
-            self.node_encoder = make_mlp(input_size=node_features, output_size=hidden_features,
+        if self.with_encoder:
+            self.node_encoder = make_mlp(input_size=self.input_node_features, output_size=hidden_features,
                                                 hidden_size=hidden_features, num_layers=encoder_layers,
                                             activation=encoder_activation, device=self.device)
 
-        self.convs = Sequential('x, edge_index',
-            ([
-                (GCNConv(in_channels=hidden_features, out_channels=hidden_features).to(self.device), 'x, edge_index -> x'),
-                get_activation_func(gnn_activation, device=self.device),
-            ] * gnn_layers)
-        )
+        self.convs = make_gnn(input_size=input_size, output_size=output_size,
+                              hidden_size=hidden_features, num_layers=num_layers,
+                              conv=GNNConvolution.GCN, activation=activation, device=self.device)
 
         # Decoder
-        if with_encoder_decoder:
-            self.node_decoder = make_mlp(input_size=hidden_features, output_size=self.dynamic_node_features,
+        if self.with_decoder:
+            self.node_decoder = make_mlp(input_size=hidden_features, output_size=self.output_node_features,
                                         hidden_size=hidden_features, num_layers=encoder_layers,
-                                        activation=encoder_activation, bias=False, device=self.device)
+                                        activation=decoder_activation, bias=False, device=self.device)
 
-        self.residual = Identity()
+        if residual:
+            self.residual = Identity()
 
     def forward(self, graph: Data) -> Tensor:
-        x = graph.x.clone()
-        edge_index = graph.edge_index.clone()
-
+        x, edge_index = graph.x.clone(), graph.edge_index.clone()
         x0 = x
 
-        x = self.node_encoder(x)
-        x = self.convs(x, edge_index)
-        x = self.node_decoder(x)
+        if self.with_encoder:
+            x = self.node_encoder(x)
 
-        if self.residual:
-            x = x + self.residual(x0[:, -self.dynamic_node_features:])
+        x = self.convs(x, edge_index)
+
+        if self.with_decoder:
+            x = self.node_decoder(x)
+
+        if hasattr(self, 'residual'):
+            x = x + self.residual(x0[:, -self.output_node_features:])
 
         return x
 
