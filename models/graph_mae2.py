@@ -2,27 +2,29 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from functools import partial
+from torch import Tensor
 from torch.nn import Module, Linear, PReLU, Parameter, Sequential
-from typing import Optional
+from torch_geometric.data import Data
 
 from .gat import GAT
 
-def setup_module(enc_dec, in_dim, num_hidden, out_dim, num_layers, dropout, activation, residual, norm, nhead, nhead_out, attn_drop, negative_slope=0.2, concat_out=True):
+def setup_module(enc_dec, in_dim, num_hidden, out_dim, num_layers, dropout, activation, residual, nhead, nhead_out, attn_drop, negative_slope=0.2, concat_out=True):
     return GAT(
-        in_dim=in_dim,
-        num_hidden=num_hidden,
-        out_dim=out_dim,
+        input_features=in_dim,
+        output_features=out_dim,
+        hidden_features=num_hidden,
         num_layers=num_layers,
-        nhead=nhead,
-        nhead_out=nhead_out,
-        concat_out=concat_out,
         activation=activation,
-        feat_drop=dropout,
-        attn_drop=attn_drop,
+        residual=False,
+        num_heads=nhead,
+        concat=concat_out,
+        dropout=attn_drop,
         negative_slope=negative_slope,
-        residual=residual,
-        norm=norm,
-        encoding=(enc_dec == "encoding"),
+        attn_residual=residual,
+        # nhead_out=nhead_out,
+        # feat_drop=dropout,
+        # encoding=(enc_dec == "encoding"),
     )
 
 def sce_loss(x, y, alpha=3):
@@ -59,7 +61,6 @@ class GraphMAE2(Module):
             attn_drop: float,
             negative_slope: float,
             residual: bool,
-            norm: Optional[str],
             mask_rate: float = 0.3,
             remask_rate: float = 0.5,
             remask_method: str = "random",
@@ -115,7 +116,6 @@ class GraphMAE2(Module):
             attn_drop=attn_drop,
             negative_slope=negative_slope,
             residual=residual,
-            norm=norm,
         )
 
         self.decoder = setup_module(
@@ -131,22 +131,20 @@ class GraphMAE2(Module):
                 attn_drop=attn_drop,
                 negative_slope=negative_slope,
                 residual=residual,
-                norm=norm,
                 concat_out=True,
             )
 
         self.enc_mask_token = Parameter(torch.zeros(1, in_dim))
         self.dec_mask_token = Parameter(torch.zeros(1, num_hidden))
-
         self.encoder_to_decoder = Linear(dec_in_dim, dec_in_dim, bias=False)
-        
+
         if not zero_init:
             self.reset_parameters_for_token()
 
 
         # * setup loss function
         self.criterion = self.setup_loss_fn(loss_fn, alpha_l)
-        
+
         self.projector = Sequential(
             Linear(num_hidden, 256),
             PReLU(),
@@ -161,7 +159,7 @@ class GraphMAE2(Module):
             PReLU(),
             Linear(num_hidden, num_hidden)
         )
-        
+
         self.encoder_ema = setup_module(
             enc_dec="encoding",
             in_dim=in_dim,
@@ -176,7 +174,6 @@ class GraphMAE2(Module):
             attn_drop=attn_drop,
             negative_slope=negative_slope,
             residual=residual,
-            norm=norm,
         )
 
         self.encoder_ema.load_state_dict(self.encoder.state_dict())
@@ -207,20 +204,24 @@ class GraphMAE2(Module):
             raise NotImplementedError
         return criterion
 
-    def forward(self, g, x, targets=None, epoch=0, drop_g1=None, drop_g2=None):        # ---- attribute reconstruction ----
-        loss = self.mask_attr_prediction(g, x, targets, epoch, drop_g1, drop_g2)
-
+    def forward(self, g: Data, x: Tensor, targets: Tensor=None): # ---- attribute reconstruction ----
+        # Additional parameters for large graph training: epoch=0, drop_g1=None, drop_g2=None
+        loss = self.mask_attr_prediction(g, x, targets)
         return loss
 
-    def mask_attr_prediction(self, g, x, targets, epoch, drop_g1=None, drop_g2=None):
+    def mask_attr_prediction(self, g, x, targets, epoch=0, drop_g1=None, drop_g2=None):
         pre_use_g, use_x, (mask_nodes, keep_nodes) = self.encoding_mask_noise(g, x, self._mask_rate)
         use_g = drop_g1 if drop_g1 is not None else g
 
-        enc_rep = self.encoder(use_g, use_x,)
+        use_g_clone = use_g.clone()
+        use_g_clone.x = use_x
+        enc_rep = self.encoder(use_g_clone)
 
         with torch.no_grad():
             drop_g2 = drop_g2 if drop_g2 is not None else g
-            latent_target = self.encoder_ema(drop_g2, x,)
+            drop_g2_clone = drop_g2.clone()
+            drop_g2_clone.x = x
+            latent_target = self.encoder_ema(drop_g2_clone)
             if targets is not None:
                 latent_target = self.projector_ema(latent_target[targets])
             else:
@@ -243,7 +244,10 @@ class GraphMAE2(Module):
             for i in range(self._num_remasking):
                 rep = origin_rep.clone()
                 rep, remask_nodes, rekeep_nodes = self.random_remask(use_g, rep, self._remask_rate)
-                recon = self.decoder(pre_use_g, rep)
+
+                pre_use_g_clone = pre_use_g.clone()
+                pre_use_g_clone.x = rep
+                recon = self.decoder(pre_use_g_clone)
 
                 x_init = x[mask_nodes]
                 x_rec = recon[mask_nodes]
@@ -252,7 +256,10 @@ class GraphMAE2(Module):
             loss_rec = loss_rec_all
         elif self._remask_method == "fixed":
             rep = self.fixed_remask(g, origin_rep, mask_nodes)
-            x_rec = self.decoder(pre_use_g, rep)[mask_nodes]
+
+            pre_use_g_clone = pre_use_g.clone()
+            pre_use_g_clone.x = rep
+            x_rec = self.decoder(pre_use_g_clone)[mask_nodes]
             x_init = x[mask_nodes]
             loss_rec = self.criterion(x_init, x_rec)
         else:
@@ -274,14 +281,14 @@ class GraphMAE2(Module):
         update(self.encoder, self.encoder_ema)
         update(self.projector, self.projector_ema)
 
-    def embed(self, g, x):
-        rep = self.encoder(g, x)
+    def embed(self, g: Data):
+        rep = self.encoder(g)
         return rep
 
     def get_encoder(self):
         #self.encoder.reset_classifier(out_size)
         return self.encoder
-    
+
     def reset_encoder(self, out_size):
         self.encoder.reset_classifier(out_size)
  
@@ -291,9 +298,9 @@ class GraphMAE2(Module):
             if p.grad is not None:
                 grad_dict[n] = p.grad.abs().mean().item()
         return grad_dict
-    
+
     def encoding_mask_noise(self, g, x, mask_rate=0.3):
-        num_nodes = g.num_nodes()
+        num_nodes = g.x.shape[0]
         perm = torch.randperm(num_nodes, device=x.device)
         num_mask_nodes = int(mask_rate * num_nodes)
 

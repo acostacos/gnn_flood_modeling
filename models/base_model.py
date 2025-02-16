@@ -2,11 +2,11 @@ from torch.nn import Module
 
 class BaseModel(Module):
     def __init__(self,
-                 static_node_features: int,
-                 dynamic_node_features: int,
-                 static_edge_features: int,
-                 dynamic_edge_features: int,
-                 previous_timesteps: int,
+                 static_node_features: int = 0,
+                 dynamic_node_features: int = 0,
+                 static_edge_features: int = 0,
+                 dynamic_edge_features: int = 0,
+                 previous_timesteps: int = 0,
                  device: str = 'cpu'):
         super().__init__()
         self.device = device

@@ -29,10 +29,10 @@ class GAT(BaseModel):
                  attn_residual: bool = True,
 
                  # Encoder Decoder Parameters
-                 encoder_layers: int = 2,
-                 encoder_activation: Activation = Activation.PRELU,
-                 decoder_layers: int = 2,
-                 decoder_activation: Activation = Activation.PRELU,
+                 encoder_layers: int = 0,
+                 encoder_activation: Activation = None,
+                 decoder_layers: int = 0,
+                 decoder_activation: Activation = None,
 
                  **base_model_kwargs):
         super().__init__(**base_model_kwargs)
