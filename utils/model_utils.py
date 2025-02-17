@@ -1,7 +1,7 @@
 from constants import Activation, GNNConvolution
 from torch import Tensor
 from torch.nn import Module, Sequential, Linear, PReLU, ReLU
-from torch_geometric.nn import GCNConv, GATConv, Sequential as PygSequential
+from torch_geometric.nn import GCNConv, GATConv, SAGEConv, Sequential as PygSequential
 
 def make_mlp(input_size: int, output_size: int, hidden_size: int = None,
              num_layers: int = 1, activation: Activation = None, bias: bool = True,
@@ -80,6 +80,9 @@ class GNNLayer(Module):
             return GCNConv(in_channels=in_features, out_channels=out_features, **conv_kwargs)
         if conv == GNNConvolution.GAT:
             return GATConv(in_channels=in_features, out_channels=out_features, **conv_kwargs)
+        if conv == GNNConvolution.SAGE:
+            in_features = (-1, -1) if in_features is None else in_features
+            return SAGEConv(in_channels=in_features, out_channels=out_features, **conv_kwargs)
         raise Exception(f'GNN Convolution {conv} is not implemented.')
 
     def forward(self, x: Tensor, edge_index: Tensor) -> Tensor:
