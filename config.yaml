@@ -121,3 +121,13 @@ model_parameters:
     remask_method: 'fixed'
     momentum: 0
     zero_init: True
+
+  GINE:
+    hidden_features: 32
+    num_layers: 2
+    activation: 'prelu'
+    mlp_layers: 2
+    eps: 0.0
+    train_eps: False
+    JK: 'last'
+    drop_ratio: 0.0
