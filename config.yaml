@@ -23,6 +23,17 @@ training_parameters:
   weight_decay    : 0             # weight decay
 
 model_parameters:
+  NodeEdgeGNN:
+    hidden_features: 32
+    num_layers: 1
+    activation: 'prelu'
+    residual: True
+    mlp_layers: 2
+    encoder_layers: 2
+    encoder_activation: 'prelu'
+    decoder_layers: 2
+    decoder_activation: 'prelu'
+
   SWEGNN:
     hidden_features: 32
     num_layers: 2

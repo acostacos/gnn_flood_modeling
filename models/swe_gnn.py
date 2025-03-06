@@ -3,7 +3,7 @@ import torch
 from constants import Activation
 from torch import Tensor
 from torch.linalg import vector_norm
-from torch.nn import Module, ModuleList, Sequential, Identity
+from torch.nn import Module, ModuleList, Identity
 from torch_geometric.data import Data
 from torch_scatter import scatter
 from utils.model_utils import make_mlp, get_activation_func
@@ -57,7 +57,7 @@ class SWEGNN(BaseModel):
         self.gnn_processors = self._make_gnns(static_node_features=static_node_features, dynamic_node_features=dynamic_node_features,
                                               edge_features=edge_features, K_hops=num_hops,
                                               num_layers=num_layers, mlp_layers=mlp_layers, mlp_activation=activation)
-        self.gnn_activations = Sequential(*([get_activation_func(activation, device=self.device)] * num_layers))
+        self.gnn_activations = ModuleList(*([get_activation_func(activation, device=self.device)] * num_layers))
 
         # Decoder
         # No bias for dynamic features
