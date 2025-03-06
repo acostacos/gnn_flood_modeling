@@ -1,13 +1,13 @@
 import geopandas as gpd
 import h5py
-import json
 import numpy as np
+import yaml
 
 from typing import Any
 
-def read_json_file(filepath: str) -> dict:
+def read_yaml_file(filepath: str) -> dict:
     with open(filepath, 'r') as file:
-        data = json.load(file)
+        data = yaml.safe_load(file)
     return data
 
 def read_shp_file_as_numpy(filepath: str, columns: str | list) -> np.ndarray:

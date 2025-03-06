@@ -22,9 +22,6 @@ def to_torch_tensor_w_transpose(data: np.ndarray) -> torch.Tensor:
 
 
 TRANSFORM_MAP = {
-    'timesteps': byte_to_timestamp,
-    'edge_index': to_torch_tensor_w_transpose,
-    'pos': to_torch_tensor_w_transpose,
     'direction_x': lambda x: select_index(x, index=0, axis=1),
     'direction_y': lambda x: select_index(x, index=1, axis=1),
     'face_length': lambda x: select_index(x, index=2, axis=1),

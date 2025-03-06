@@ -1,0 +1,12 @@
+properties:
+  timesteps:
+    file: 'hdf'
+    path: 'Results.Unsteady.Output.Output Blocks.Base Output.Unsteady Time Series.Time Date Stamp'
+
+  edge_index:
+    file: 'shp'
+    column: ['from_node', 'to_node']
+
+  pos:
+    file: 'shp'
+    column: ['X', 'Y']

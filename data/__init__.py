@@ -1,4 +1,3 @@
-from .edge_regression_dataset import EdgeRegressionDataset
-from .temporal_graph_dataset import TemporalGraphDataset
+from .flooding_event_dataset import FloodingEventDataset
 
-__all__ = ['EdgeRegressionDataset', 'TemporalGraphDataset']
+__all__ = ['FloodingEventDataset']

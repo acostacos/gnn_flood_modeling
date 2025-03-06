@@ -4,7 +4,7 @@ import torch
 import yaml
 
 from argparse import ArgumentParser, Namespace
-from data import TemporalGraphDataset
+from data import FloodingEventDataset
 from models import SWEGNN
 
 def parse_args() -> Namespace:
@@ -25,7 +25,7 @@ def main():
         with open(args.config_path) as f:
             config = yaml.safe_load(f)
 
-        dataset = TemporalGraphDataset(node_features=config['node_features'],
+        dataset = FloodingEventDataset(node_features=config['node_features'],
                             edge_features=config['edge_features'],
                             **config['dataset_parameters']).load()
         print(len(dataset))

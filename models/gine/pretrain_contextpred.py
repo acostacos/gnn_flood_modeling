@@ -10,7 +10,7 @@ from .model import GINE
 
 from utils.gine_utils import ExtractSubstructureContextPair, DataLoaderSubstructContext
 
-from data import TemporalGraphDataset
+from data import FloodingEventDataset
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool
 
 
@@ -127,7 +127,7 @@ def main(model_file):
         config = yaml.safe_load(f)
 
     #set up dataset and transform function.
-    raw_dataset, info = TemporalGraphDataset(node_features=config['node_features'],
+    raw_dataset, info = FloodingEventDataset(node_features=config['node_features'],
                     edge_features=config['edge_features'],
                     **config['dataset_parameters']).load()
     transform = ExtractSubstructureContextPair(args['num_layer'], l1, l2)
