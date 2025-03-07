@@ -96,7 +96,7 @@ class NodeEdgeGNN(BaseModel):
             x = self.res_activation(x + self.residual(x0[:, -self.output_node_features:]))
             edge_attr = self.res_activation(edge_attr + self.residual(edge_attr0[:, -self.output_edge_features:]))
 
-        return x
+        return x, edge_attr
 
 class NodeEdgeConv(MessagePassing):
     """

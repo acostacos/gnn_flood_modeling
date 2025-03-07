@@ -1,7 +1,7 @@
 dataset_parameters:
   graph_metadata_path: 'data/graph_metadata.yaml'
   feature_metadata_path: 'data/feature_metadata.yaml'
-  hec_ras_hdf_path: 'data/datasets/Model_01.p01.hdf'
+  hec_ras_hdf_path: 'data/datasets/Model_01.p04.hdf'
   nodes_shp_path: 'data/datasets/geometry/cell_centers.shp'
   edges_shp_path: 'data/datasets/geometry/links.shp'
   previous_timesteps: 2
@@ -27,7 +27,7 @@ training_parameters:
 model_parameters:
   NodeEdgeGNN:
     hidden_features: 32
-    num_layers: 1
+    num_layers: 2
     activation: 'prelu'
     residual: True
     mlp_layers: 2
