@@ -190,6 +190,8 @@ class FloodingEventDataset():
     def _debug_print_graph_properties(self, timesteps: List[datetime], edge_index: Tensor, pos: Tensor):
         print('Graph properties:')
         print(f'\tTimesteps: {len(timesteps)}')
+        if len(timesteps) > 1:
+            print(f'\tTimestep delta: {timesteps[1] - timesteps[0]}')
         print(f'\tEdge Index: {edge_index.shape}')
         print(f'\tPos: {pos.shape}')
     

@@ -1,7 +1,7 @@
 dataset_parameters:
   graph_metadata_path: 'data/graph_metadata.yaml'
   feature_metadata_path: 'data/feature_metadata.yaml'
-  hec_ras_hdf_path: 'data/datasets/Model_01.p04.hdf'
+  hec_ras_hdf_path: 'data/datasets/Model_01.p01.hdf'
   nodes_shp_path: 'data/datasets/geometry/cell_centers.shp'
   edges_shp_path: 'data/datasets/geometry/links.shp'
   previous_timesteps: 2
@@ -109,6 +109,12 @@ model_parameters:
     encoder_activation: 'prelu'
     decoder_layers: 1
     decoder_activation: 'prelu'
+  
+  MLP:
+    num_layers: 2
+    activation: 'prelu'
+    bias: True
+    residual: True
 
   GRAPHMAE2:
     num_hidden: 32

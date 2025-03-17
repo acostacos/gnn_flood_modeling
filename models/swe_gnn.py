@@ -57,7 +57,7 @@ class SWEGNN(BaseModel):
         self.gnn_processors = self._make_gnns(static_node_features=static_node_features, dynamic_node_features=dynamic_node_features,
                                               edge_features=edge_features, K_hops=num_hops,
                                               num_layers=num_layers, mlp_layers=mlp_layers, mlp_activation=activation)
-        self.gnn_activations = ModuleList(*([get_activation_func(activation, device=self.device)] * num_layers))
+        self.gnn_activations = ModuleList(([get_activation_func(activation, device=self.device)] * num_layers))
 
         # Decoder
         # No bias for dynamic features

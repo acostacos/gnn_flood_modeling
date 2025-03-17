@@ -24,11 +24,12 @@ class TrainingStats:
     def start_val(self):
         self.val_start_time = time.time()
 
-    def end_val(self):
+    def end_val(self, num_samples: int = 1):
         self.val_end_time = time.time()
+        self.inference_time = (self.val_end_time - self.val_start_time) / num_samples
 
     def get_val_time(self):
-        return self.val_end_time - self.val_start_time
+        return self.inference_time
 
     def set_val_loss(self, loss):
         self.val_loss = loss
@@ -50,7 +51,7 @@ class TrainingStats:
             print(f'Validation Loss: {self.val_loss:.4f}')
 
         if self.val_start_time is not None and self.val_end_time is not None: 
-            print(f'Inference time: {self.get_val_time():4f} seconds')
+            print(f'Inference time: {self.get_val_time():.4f} seconds')
 
     def plot_train_loss(self):
         plt.plot(self.train_epoch_loss)

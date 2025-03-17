@@ -67,7 +67,7 @@ class BaseTrainer:
         avg_loss = running_loss / len(self.val_dataset)
         self.stats.set_val_loss(avg_loss)
 
-        self.stats.end_val()
+        self.stats.end_val(len(self.val_dataset))
 
     def get_prediction(self, graph: Data) -> Any:
         pred = self.model(graph)
