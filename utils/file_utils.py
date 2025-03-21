@@ -27,4 +27,6 @@ def get_property_from_path(dict: dict, dict_path: str, separator: str = '.') -> 
     for key in keys:
         if key in d:
             d = d[key]
+        else:
+            raise KeyError(f'Key {key} not found in dictionary for path {dict_path}')
     return d

@@ -117,7 +117,7 @@ class SWEGNN(BaseModel):
 
         # Add residual connections
         if hasattr(self, 'residual'):
-            x = x + self.residual(x0[:, -self.dynamic_node_features:])
+            x = x + self.residual(x0[:, -self.output_node_features:])
 
         # Mask very small water depth
         x = self._mask_small_WD(x, epsilon=0.001)

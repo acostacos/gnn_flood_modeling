@@ -1,15 +1,16 @@
 dataset_parameters:
   graph_metadata_path: 'data/graph_metadata.yaml'
   feature_metadata_path: 'data/feature_metadata.yaml'
-  hec_ras_hdf_path: 'data/datasets/Model_01.p01.hdf'
-  nodes_shp_path: 'data/datasets/geometry/cell_centers.shp'
-  edges_shp_path: 'data/datasets/geometry/links.shp'
+  hec_ras_hdf_path: 'data/datasets/lr/M01.p04.hdf'
+  nodes_shp_path: 'data/datasets/lr/geometry/cell_centers.shp'
+  edges_shp_path: 'data/datasets/lr/geometry/links.shp'
   previous_timesteps: 2
 
 node_features:
   area          : True    # Cell area per node
   roughness     : True    # Manning's roughness
   elevation     : True    # Node elevation
+  rainfall      : True    # Rainfall added per interval at each node
   water_level   : True    # Water level at each node
 
 edge_features:
@@ -21,6 +22,8 @@ edge_features:
   velocity      : True    # Water velocity at each link
 
 training_parameters:
+  percent_train   : 0.8           # Percentage of data to use for training
+  num_epochs      : 10            # Number of epochs
   learning_rate   : 0.007         # learning rate
   weight_decay    : 0             # weight decay
 

@@ -14,6 +14,11 @@ node_features:
         file: 'shp'
         column: 'Elevation1'
 
+    rainfall:
+        type: 'dynamic'
+        file: 'hdf'
+        path: 'Results.Unsteady.Output.Output Blocks.Base Output.Unsteady Time Series.2D Flow Areas.Perimeter 1.Cell Cumulative Precipitation Depth'
+
     water_level:
         type: 'dynamic'
         file: 'hdf'

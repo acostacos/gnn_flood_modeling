@@ -65,8 +65,8 @@ class FloodingEventDataset():
                 self._debug_test_data_format(FeatureClass.NODE, i, node_features)
                 self._debug_test_data_format(FeatureClass.EDGE, i, edge_features)
 
-            label_node = dynamic_nodes[i+1]
-            label_edges = dynamic_edges[i+1]
+            label_node = dynamic_nodes[i+1][:, :-1] # Water level
+            label_edges = dynamic_edges[i+1] # Velocity
             data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_features,
                         y=label_node, y_edge=label_edges, pos=pos)
             data = ToUndirected()(data) # Transform to undirected graph
@@ -168,12 +168,17 @@ class FloodingEventDataset():
 
         if timestep_idx < self.previous_timesteps:
             _, num, num_df = dynamic_features.shape
-            fill = torch.zeros((num, num_df * (self.previous_timesteps-timestep_idx)))
-            valid = dynamic_features[:timestep_idx+1].transpose(0, 1).flatten(start_dim=1)
-            ts_dynamic_features = torch.cat([fill, valid], dim=1)
+            num_rows_per_dynamic = self.previous_timesteps+1
+            ts_dynamic_features = torch.zeros((num, num_df * (num_rows_per_dynamic)))
+            # Add fill for each dynamic feature
+            for i in range(num_df):
+                fill = torch.zeros((num, self.previous_timesteps-timestep_idx), dtype=dynamic_features.dtype)
+                valid = dynamic_features[:timestep_idx+1, :, i].transpose(1, 0)
+                combined = torch.cat([fill, valid], dim=1)
+                ts_dynamic_features[:, i*num_rows_per_dynamic:(i+1)*num_rows_per_dynamic] = combined
         else:
             ts_dynamic_features = dynamic_features[timestep_idx-self.previous_timesteps:timestep_idx+1]
-            ts_dynamic_features = ts_dynamic_features.transpose(0, 1).flatten(start_dim=1)
+            ts_dynamic_features = ts_dynamic_features.permute((1, 2, 0)).flatten(start_dim=1)
 
         return torch.cat([static_features, ts_dynamic_features], dim=1)
 

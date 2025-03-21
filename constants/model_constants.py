@@ -9,3 +9,8 @@ class GNNConvolution(StrEnum):
 class Activation(StrEnum):
     RELU = 'relu'
     PRELU = 'prelu'
+
+class LossFunction(StrEnum):
+    L1 = 'l1'
+    MSE = 'mse'
+    COMBINED_L1 = 'combined_l1'

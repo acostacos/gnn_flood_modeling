@@ -20,9 +20,14 @@ def byte_to_timestamp(data: np.ndarray[np.bytes_]) -> np.ndarray:
 def to_torch_tensor_w_transpose(data: np.ndarray) -> torch.Tensor:
     return torch.Tensor(data).type(torch.int64).transpose(1, 0)
 
+def convert_cumulative_to_intervals(data: np.ndarray) -> np.ndarray:
+    first_ts_rainfall = np.zeros((1, data.shape[1]), dtype=np.float32)
+    intervals = np.diff(data, axis=0)
+    return np.concatenate((first_ts_rainfall, intervals), axis=0)
 
 TRANSFORM_MAP = {
     'direction_x': lambda x: select_index(x, index=0, axis=1),
     'direction_y': lambda x: select_index(x, index=1, axis=1),
     'face_length': lambda x: select_index(x, index=2, axis=1),
+    'rainfall': convert_cumulative_to_intervals,
 }
