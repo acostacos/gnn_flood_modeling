@@ -15,7 +15,7 @@ from utils.loss_func_utils import get_loss_func
 def parse_args() -> Namespace:
     parser = ArgumentParser(description='')
     parser.add_argument('--config_path', type=str, default='config.yaml', help='Path to config file')
-    parser.add_argument("--model", type=str, default='GCN', help='Model to use for training')
+    parser.add_argument("--model", type=str, default='NodeEdgeGNN', help='Model to use for training')
     parser.add_argument("--debug", type=bool, default=False, help='Add debug messages to output')
     parser.add_argument("--seed", type=int, default=42, help='Seed for random number generators')
     parser.add_argument("--device", type=str, default=('cuda' if torch.cuda.is_available() else 'cpu'), help='Device to run on')
