@@ -5,6 +5,7 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from torch_geometric.data import Data
 from typing import Any, Callable, List
+from utils import Logger
 
 from .training_stats import TrainingStats
 
@@ -16,7 +17,8 @@ class BaseTrainer:
                  loss_func: Callable | Module,
                  optimizer: Optimizer,
                  num_epochs: int,
-                 device: str):
+                 device: str,
+                 logger: Logger = None):
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
         self.model = model
@@ -24,7 +26,11 @@ class BaseTrainer:
         self.optimizer = optimizer
         self.num_epochs = num_epochs
         self.device = device
-        self.stats = TrainingStats()
+
+        self.log = print
+        if logger is not None and hasattr(logger, 'log'):
+            self.log = logger.log
+        self.stats = TrainingStats(logger=logger)
 
     def train(self):
         self.stats.start_train()
@@ -46,7 +52,7 @@ class BaseTrainer:
 
             epoch_loss = running_loss / len(self.train_dataset)
             self.stats.add_train_loss(epoch_loss)
-            print(f'Epoch [{epoch + 1}/{self.num_epochs}], Training Loss: {epoch_loss:.4f}')
+            self.log(f'Epoch [{epoch + 1}/{self.num_epochs}], Training Loss: {epoch_loss:.4f}')
 
         self.stats.end_train()
 

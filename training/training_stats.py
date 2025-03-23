@@ -1,10 +1,15 @@
 import time
 import matplotlib.pyplot as plt
 import numpy as np
+from utils import Logger
 
 class TrainingStats:
-    def __init__(self):
+    def __init__(self, logger: Logger = None):
         self.train_epoch_loss = []
+
+        self.log = print
+        if logger is not None and hasattr(logger, 'log'):
+            self.log = logger.log
 
     def start_train(self):
         self.train_start_time = time.time()
@@ -39,19 +44,19 @@ class TrainingStats:
 
     def print_stats_summary(self):
         if len(self.train_epoch_loss) > 0:
-            print(f'Final training Loss: {self.train_epoch_loss[-1]:.4f}')
-            print(f'Average training Loss: {np.mean(self.train_epoch_loss):.4f}')
-            print(f'Minimum training Loss: {np.min(self.train_epoch_loss):.4f}')
-            print(f'Maximum training Loss: {np.max(self.train_epoch_loss):.4f}')
+            self.log(f'Final training Loss: {self.train_epoch_loss[-1]:.4f}')
+            self.log(f'Average training Loss: {np.mean(self.train_epoch_loss):.4f}')
+            self.log(f'Minimum training Loss: {np.min(self.train_epoch_loss):.4f}')
+            self.log(f'Maximum training Loss: {np.max(self.train_epoch_loss):.4f}')
 
         if self.train_start_time is not None and self.train_end_time is not None:
-            print(f'Total training time: {self.get_train_time():.4f} seconds')
+            self.log(f'Total training time: {self.get_train_time():.4f} seconds')
 
         if self.val_loss is not None:
-            print(f'Validation Loss: {self.val_loss:.4f}')
+            self.log(f'Validation Loss: {self.val_loss:.4f}')
 
         if self.val_start_time is not None and self.val_end_time is not None: 
-            print(f'Inference time: {self.get_val_time():.4f} seconds')
+            self.log(f'Inference time: {self.get_val_time():.4f} seconds')
 
     def plot_train_loss(self):
         plt.plot(self.train_epoch_loss)

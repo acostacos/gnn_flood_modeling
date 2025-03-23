@@ -174,3 +174,4 @@ cython_debug/
 
 # Data
 data/datasets
+logs/

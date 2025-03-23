@@ -1,7 +1,7 @@
 dataset_parameters:
   graph_metadata_path: 'data/graph_metadata.yaml'
   feature_metadata_path: 'data/feature_metadata.yaml'
-  hec_ras_hdf_path: 'data/datasets/lr/M01.p04.hdf'
+  hec_ras_hdf_path: 'data/datasets/lr/M01.p01.hdf'
   nodes_shp_path: 'data/datasets/lr/geometry/cell_centers.shp'
   edges_shp_path: 'data/datasets/lr/geometry/links.shp'
   previous_timesteps: 2
