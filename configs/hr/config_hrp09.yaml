@@ -1,0 +1,155 @@
+dataset_parameters:
+  graph_metadata_path: 'data/graph_metadata.yaml'
+  feature_metadata_path: 'data/feature_metadata.yaml'
+  hec_ras_hdf_path: 'data/datasets/hr/M01.p09.hdf'
+  nodes_shp_path: 'data/datasets/hr/geometry/cell_centers.shp'
+  edges_shp_path: 'data/datasets/hr/geometry/links.shp'
+  previous_timesteps: 2
+
+node_features:
+  area          : True    # Cell area per node
+  roughness     : True    # Manning's roughness
+  elevation     : True    # Node elevation
+  rainfall      : True    # Rainfall added per interval at each node
+  water_level   : True    # Water level at each node
+
+edge_features:
+  direction_x   : True    # Link direction along x-axis
+  direction_y   : True    # Link direction along y-axis
+  face_length   : True    # Link face length
+  length        : True    # Link length
+  slope         : True    # Link slope
+  velocity      : True    # Water velocity at each link
+
+training_parameters:
+  percent_train   : 0.8           # Percentage of data to use for training
+  num_epochs      : 10            # Number of epochs
+  learning_rate   : 0.007         # learning rate
+  weight_decay    : 0             # weight decay
+
+model_parameters:
+  NodeEdgeGNN:
+    hidden_features: 32
+    num_layers: 2
+    activation: 'prelu'
+    residual: True
+    mlp_layers: 2
+    encoder_layers: 2
+    encoder_activation: 'prelu'
+    decoder_layers: 2
+    decoder_activation: 'prelu'
+
+  SWEGNN:
+    hidden_features: 32
+    num_layers: 2
+    num_hops: 8
+    mlp_layers: 2
+    activation: 'prelu'
+    residual: True
+    encoder_layers: 2
+    encoder_activation: 'prelu'
+    decoder_layers: 2
+    decoder_activation: 'prelu'
+
+  GCN:
+    hidden_features: 32
+    num_layers: 2
+    activation: 'prelu'
+    residual: True
+    encoder_layers: 2
+    encoder_activation: 'prelu'
+    decoder_layers: 2
+    decoder_activation: 'prelu'
+
+  GAT:
+    hidden_features: 32
+    num_layers: 2
+    activation: 'prelu'
+    residual: True
+    num_heads: 1
+    concat: True
+    dropout: 0.0
+    negative_slope: 0.2
+    attn_residual: True
+    encoder_layers: 2
+    encoder_activation: 'prelu'
+    decoder_layers: 2
+    decoder_activation: 'prelu'
+
+  GIN:
+    hidden_features: 32
+    num_layers: 1
+    activation: 'relu'
+    residual: True
+    mlp_layers: 2
+    eps: 0.0
+    train_eps: False
+    encoder_layers: 0
+    encoder_activation: null
+    decoder_layers: 0
+    decoder_activation: null
+
+  GraphSAGE:
+    hidden_features: 32
+    num_layers: 2
+    activation: 'prelu'
+    residual: False
+    aggr: 'mean'
+    normalize: False
+    root_weight: True
+    project: False
+    bias: True
+    encoder_layers: 2
+    encoder_activation: 'prelu'
+    decoder_layers: 2
+    decoder_activation: 'prelu'
+
+  EdgeGNN:
+    hidden_features: 32
+    num_layers: 1
+    activation: 'prelu'
+    encoder_layers: 1
+    encoder_activation: 'prelu'
+    decoder_layers: 1
+    decoder_activation: 'prelu'
+  
+  MLP:
+    num_layers: 2
+    activation: 'prelu'
+    bias: True
+    residual: True
+
+  GRAPHMAE2:
+    num_hidden: 32
+    num_layers: 2
+    num_dec_layers: 1
+    residual: False
+    num_remasking: 3
+    activation: 'prelu'
+    nhead: 1
+    nhead_out: 1
+    feat_drop: 0.2
+    attn_drop: 0.1
+    negative_slope: 0.2
+    mask_rate: 0.5
+    remask_rate: 0.5
+    mask_method: 'random'
+    loss_fn: 'sce'
+    drop_edge_rate: 0.0
+    alpha_l: 3
+    lam: 0.15
+    delayed_ema_epoch: 0
+    replace_rate: 0.15
+    remask_method: 'fixed'
+    momentum: 0
+    zero_init: True
+
+  GINE:
+    hidden_features: 32
+    num_layers: 2
+    activation: 'prelu'
+    mlp_layers: 2
+    eps: 0.0
+    train_eps: False
+    JK: 'last'
+    drop_ratio: 0.0
