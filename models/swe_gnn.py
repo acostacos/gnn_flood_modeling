@@ -1,6 +1,5 @@
 import torch
 
-from constants import Activation
 from torch import Tensor
 from torch.linalg import vector_norm
 from torch.nn import Module, ModuleList, Identity
@@ -22,15 +21,15 @@ class SWEGNN(BaseModel):
                  num_layers: int = 1,
                  num_hops: int = 8,
                  mlp_layers: int = 2,
-                 activation: Activation = Activation.PRELU,
+                 activation: str = 'prelu',
                  residual: bool = True,
                  dropout=0, # TODO: Check if you need this
 
                  # Encoder Decoder Parameters
                  encoder_layers: int = 2,
-                 encoder_activation: Activation = Activation.PRELU,
+                 encoder_activation: str = 'prelu',
                  decoder_layers: int = 2,
-                 decoder_activation: Activation = Activation.PRELU,
+                 decoder_activation: str = 'prelu',
                  **base_model_kwargs):
         super().__init__(**base_model_kwargs)
         self.with_encoder = encoder_layers > 0

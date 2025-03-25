@@ -1,4 +1,3 @@
-from constants import Activation
 from torch import Tensor
 from torch.nn import Identity
 from torch_geometric.data import Data
@@ -14,7 +13,7 @@ class MLP(BaseModel):
     def __init__(self,
                  num_nodes: int,
                  num_layers: int = 1,
-                 activation: Activation = Activation.PRELU,
+                 activation: str = 'prelu',
                  bias: bool = True,
                  residual: bool = True,
 

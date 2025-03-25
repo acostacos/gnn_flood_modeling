@@ -4,7 +4,6 @@ import torch
 import yaml
 
 from argparse import ArgumentParser, Namespace
-from constants import LossFunction
 from typing import Tuple
 from data import FloodingEventDataset
 from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, SWEGNN
@@ -22,21 +21,21 @@ def parse_args() -> Namespace:
     parser.add_argument("--log_path", type=str, default=None, help='Path to log file')
     return parser.parse_args()
 
-def model_factory(model_name: str, **kwargs) -> Tuple[torch.nn.Module, LossFunction]:
+def model_factory(model_name: str, **kwargs) -> Tuple[torch.nn.Module, str]:
     if model_name == 'NodeEdgeGNN':
-        return NodeEdgeGNN(**kwargs), LossFunction.L1
+        return NodeEdgeGNN(**kwargs), 'l1'
     if model_name == 'SWEGNN':
-        return SWEGNN(**kwargs), LossFunction.L1
+        return SWEGNN(**kwargs), 'l1'
     if model_name == 'GCN':
-        return GCN(**kwargs), LossFunction.L1
+        return GCN(**kwargs), 'l1'
     if model_name == 'GAT':
-        return GAT(**kwargs), LossFunction.L1
+        return GAT(**kwargs), 'l1'
     if model_name == 'GIN':
-        return GIN(**kwargs), LossFunction.L1
+        return GIN(**kwargs), 'l1'
     if model_name == 'GraphSAGE':
-        return GraphSAGE(**kwargs), LossFunction.L1
+        return GraphSAGE(**kwargs), 'l1'
     if model_name == 'MLP':
-        return MLP(**kwargs), LossFunction.L1
+        return MLP(**kwargs), 'l1'
     raise ValueError(f'Invalid model name: {model_name}')
 
 def trainer_factory(model_name: str, **kwargs):

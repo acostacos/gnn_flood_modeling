@@ -1,10 +1,9 @@
-from constants import Activation, GNNConvolution
 from torch import Tensor
 from torch.nn import Module, Sequential, Linear, PReLU, ReLU
 from torch_geometric.nn import GCNConv, GATConv, SAGEConv, Sequential as PygSequential
 
 def make_mlp(input_size: int, output_size: int, hidden_size: int = None,
-             num_layers: int = 1, activation: Activation = None, bias: bool = True,
+             num_layers: int = 1, activation: str = None, bias: bool = True,
              device: str = 'cpu') -> Module:
     if num_layers == 1:
         return LinearLayer(input_size, output_size, activation, bias, device)
@@ -18,8 +17,8 @@ def make_mlp(input_size: int, output_size: int, hidden_size: int = None,
     return Sequential(*layers)
 
 def make_gnn(input_size: int, output_size: int, hidden_size: int = None,
-             num_layers: int = 1, conv: GNNConvolution = GNNConvolution.GCN,
-             activation: Activation = None, device: str = 'cpu', **conv_kwargs) -> Module:
+             num_layers: int = 1, conv: str = 'gcn',
+             activation: str = None, device: str = 'cpu', **conv_kwargs) -> Module:
     if num_layers == 1:
         return GNNLayer(input_size, output_size, conv, activation, device, **conv_kwargs)
 
@@ -37,10 +36,10 @@ def make_gnn(input_size: int, output_size: int, hidden_size: int = None,
     ) # Output Layer
     return PygSequential('x, edge_index', layers)
 
-def get_activation_func(name: Activation, device: str = 'cpu') -> Module:
-    if name == Activation.RELU:
+def get_activation_func(name: str, device: str = 'cpu') -> Module:
+    if name == 'relu':
         return ReLU()
-    if name == Activation.PRELU:
+    if name == 'prelu':
         return PReLU(device=device)
     raise Exception(f'Activation function {name} is not implemented.')
 
@@ -48,7 +47,7 @@ class LinearLayer(Module):
     def __init__(self,
                  in_features: int,
                  out_features: int,
-                 activation: Activation = None,
+                 activation: str = None,
                  bias: bool = True,
                  device: str = 'cpu'):
         super().__init__()
@@ -66,8 +65,8 @@ class GNNLayer(Module):
     def __init__(self,
                  in_features: int,
                  out_features: int,
-                 conv: GNNConvolution = GNNConvolution.GCN,
-                 activation: Activation = None,
+                 conv: str = 'gcn',
+                 activation: str = None,
                  device: str = 'cpu',
                  **conv_kwargs):
         super().__init__()
@@ -75,12 +74,12 @@ class GNNLayer(Module):
         if activation is not None:
             self.activation = get_activation_func(activation, device=device)
 
-    def _get_conv(self, conv: GNNConvolution, in_features: int, out_features: int, **conv_kwargs) -> Module:
-        if conv == GNNConvolution.GCN:
+    def _get_conv(self, conv: str, in_features: int, out_features: int, **conv_kwargs) -> Module:
+        if conv == 'gcn':
             return GCNConv(in_channels=in_features, out_channels=out_features, **conv_kwargs)
-        if conv == GNNConvolution.GAT:
+        if conv == 'gat':
             return GATConv(in_channels=in_features, out_channels=out_features, **conv_kwargs)
-        if conv == GNNConvolution.SAGE:
+        if conv == 'sage':
             in_features = (-1, -1) if in_features is None else in_features
             return SAGEConv(in_channels=in_features, out_channels=out_features, **conv_kwargs)
         raise Exception(f'GNN Convolution {conv} is not implemented.')

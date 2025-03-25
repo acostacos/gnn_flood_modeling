@@ -5,7 +5,6 @@ import torch.nn.functional as F
 
 from torch_geometric.nn import GINEConv
 
-from constants.model_constants import Activation
 from utils.model_utils import make_mlp
 from models.base_model import BaseModel
 
@@ -19,7 +18,7 @@ class GINE(BaseModel):
                  output_features: int = None,
                  hidden_features: int = None,
                  num_layers: int = 2,
-                 activation: Activation = Activation.PRELU,
+                 activation: str = 'prelu',
 
                  # GINEConv Parameters
                  mlp_layers: int = 2,

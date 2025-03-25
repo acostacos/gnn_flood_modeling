@@ -1,5 +1,4 @@
 import torch
-from constants import Activation
 from torch import Tensor
 from torch.nn import Identity
 from torch_geometric.data import Data
@@ -15,15 +14,15 @@ class NodeEdgeGNN(BaseModel):
     def __init__(self,
                  hidden_features: int = None,
                  num_layers: int = 1,
-                 activation: Activation = Activation.PRELU,
+                 activation: str = 'prelu',
                  residual: bool = True,
                  mlp_layers: int = 2,
 
                  # Encoder Decoder Parameters
                  encoder_layers: int = 0,
-                 encoder_activation: Activation = None,
+                 encoder_activation: str = None,
                  decoder_layers: int = 0,
-                 decoder_activation: Activation = None,
+                 decoder_activation: str = None,
 
                  **base_model_kwargs):
         super().__init__(**base_model_kwargs)
@@ -64,7 +63,7 @@ class NodeEdgeGNN(BaseModel):
             self.res_activation = get_activation_func(activation, device=self.device)
 
     def _make_gnn(self, input_node_size: int, output_node_size: int, input_edge_size: int, output_edge_size: int,
-                  num_layers: int, mlp_layers: int, activation: Activation, device: str):
+                  num_layers: int, mlp_layers: int, activation: str, device: str):
         if num_layers == 1:
             return NodeEdgeConv(input_node_size, output_node_size, input_edge_size, output_edge_size,
                                 num_layers=mlp_layers, activation=activation, device=device)
@@ -105,7 +104,7 @@ class NodeEdgeConv(MessagePassing):
     Update = MLP
     """
     def __init__(self, node_in_channels: int, node_out_channels: int, edge_in_channels: int, edge_out_channels: int,
-                 num_layers: int = 2, activation: Activation = Activation.PRELU, device: str = 'cpu'):
+                 num_layers: int = 2, activation: str = 'prelu', device: str = 'cpu'):
         super().__init__(aggr='sum')
         msg_input_size = (node_in_channels * 2 + edge_in_channels)
         msg_hidden_size = msg_input_size * 2

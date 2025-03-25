@@ -1,7 +1,6 @@
 
-from constants import Activation
 from torch import Tensor
-from torch.nn import Linear, Identity
+from torch.nn import Identity
 from torch_geometric.nn import GINConv, Sequential as PygSequential
 from torch_geometric.data import Data
 from utils.model_utils import make_mlp
@@ -18,7 +17,7 @@ class GIN(BaseModel):
                  output_features: int = None,
                  hidden_features: int = None,
                  num_layers: int = 1,
-                 activation: Activation = Activation.RELU,
+                 activation: str = 'relu',
                  residual: bool = True,
 
                  # GINConv Parameters
@@ -28,9 +27,9 @@ class GIN(BaseModel):
 
                  # Encoder Decoder Parameters
                  encoder_layers: int = 0,
-                 encoder_activation: Activation = None,
+                 encoder_activation: str = None,
                  decoder_layers: int = 0,
-                 decoder_activation: Activation = None,
+                 decoder_activation: str = None,
 
                  **base_model_kwargs):
         super().__init__(**base_model_kwargs)

@@ -1,6 +1,5 @@
 import torch
 
-from constants import Activation
 from torch import Tensor
 from torch_geometric.data import Data
 from torch_geometric.nn import MessagePassing, Sequential as PygSequential
@@ -13,14 +12,14 @@ class EdgeGNN(BaseModel):
                  output_features: int = None,
                  hidden_features: int = 32,
                  num_layers: int = 1,
-                 activation: Activation = Activation.PRELU,
+                 activation: str = 'prelu',
                  residual: bool = True,
 
                  # Encoder Decoder Parameters
                  encoder_layers: int = 2,
-                 encoder_activation: Activation = Activation.PRELU,
+                 encoder_activation: str = 'prelu',
                  decoder_layers: int = 2,
-                 decoder_activation: Activation = Activation.PRELU,
+                 decoder_activation: str = 'prelu',
 
                  **base_model_kwargs):
         super().__init__(**base_model_kwargs)
@@ -74,7 +73,7 @@ class EdgeGNN(BaseModel):
 
 class EdgeGNNConv(MessagePassing):
     def __init__(self, in_channels, out_channels, num_layers: int = 2,
-                 activation: Activation = Activation.RELU, device: str = 'cpu'):
+                 activation: str = 'relu', device: str = 'cpu'):
         super().__init__(aggr='sum')
 
         input_size = in_channels * 2

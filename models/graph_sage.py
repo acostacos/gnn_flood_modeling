@@ -1,4 +1,3 @@
-from constants import GNNConvolution, Activation
 from torch import Tensor
 from torch.nn import Identity
 from torch_geometric.data import Data
@@ -16,7 +15,7 @@ class GraphSAGE(BaseModel):
                  output_features: int = None,
                  hidden_features: int = None,
                  num_layers: int = 1,
-                 activation: Activation = Activation.PRELU,
+                 activation: str = 'prelu',
                  residual: bool = True,
 
                  # SAGEConv Parameters
@@ -28,9 +27,9 @@ class GraphSAGE(BaseModel):
 
                  # Encoder Decoder Parameters
                  encoder_layers: int = 0,
-                 encoder_activation: Activation = None,
+                 encoder_activation: str = None,
                  decoder_layers: int = 0,
-                 decoder_activation: Activation = None,
+                 decoder_activation: str = None,
 
                  **base_model_kwargs):
         super().__init__(**base_model_kwargs)
@@ -53,7 +52,7 @@ class GraphSAGE(BaseModel):
 
         self.convs = make_gnn(input_size=input_size, output_size=output_size,
                               hidden_size=hidden_features, num_layers=num_layers,
-                              conv=GNNConvolution.SAGE, activation=activation, device=self.device,
+                              conv='sage', activation=activation, device=self.device,
                               aggr=aggr, normalize=normalize, root_weight=root_weight, project=project, bias=bias)
 
         # Decoder

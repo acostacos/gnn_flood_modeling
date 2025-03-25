@@ -1,4 +1,3 @@
-from constants import Activation, GNNConvolution
 from torch import Tensor
 from torch.nn import Identity
 from torch_geometric.data import Data
@@ -16,7 +15,7 @@ class GAT(BaseModel):
                  output_features: int = None,
                  hidden_features: int = None,
                  num_layers: int = 1,
-                 activation: Activation = Activation.PRELU,
+                 activation: str = 'prelu',
                  residual: bool = True,
                  encoding: bool = False, # If encoder, add residual and activation for last layer
 
@@ -31,9 +30,9 @@ class GAT(BaseModel):
 
                  # Encoder Decoder Parameters
                  encoder_layers: int = 0,
-                 encoder_activation: Activation = None,
+                 encoder_activation: str = None,
                  decoder_layers: int = 0,
-                 decoder_activation: Activation = None,
+                 decoder_activation: str = None,
 
                  **base_model_kwargs):
         super().__init__(**base_model_kwargs)
@@ -59,7 +58,7 @@ class GAT(BaseModel):
 
         self.convs = make_gnn(input_size=input_size, output_size=output_size,
                               hidden_size=hidden_features, num_layers=num_layers,
-                              conv=GNNConvolution.GAT, activation=activation, device=self.device,
+                              conv='gat', activation=activation, device=self.device,
                               heads=num_heads, concat=concat, dropout=dropout, negative_slope=negative_slope,
                               residual=attn_residual)
 

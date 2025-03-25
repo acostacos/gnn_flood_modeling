@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 
-from constants import FeatureClass, FeatureType, FeatureSource
 from datetime import datetime
 from torch import Tensor
 from torch_geometric.data import Data
@@ -11,6 +10,11 @@ from utils import file_utils, Logger
 
 from .feature_transform import TRANSFORM_MAP, byte_to_timestamp, to_torch_tensor_w_transpose
 
+FEATURE_CLASS_NODE = "node_features"
+FEATURE_CLASS_EDGE = "edge_features"
+
+FEATURE_TYPE_STATIC = "static"
+FEATURE_TYPE_DYNAMIC = "dynamic"
 
 class FloodingEventDataset():
     def __init__(self,
@@ -33,7 +37,7 @@ class FloodingEventDataset():
         self.graph_metadata_path = graph_metadata_path
         self.feature_metadata_path = feature_metadata_path
         self.hdf_filepath = hec_ras_hdf_path
-        self.shp_filepath = { FeatureClass.NODE: nodes_shp_path, FeatureClass.EDGE: edges_shp_path }
+        self.shp_filepath = { FEATURE_CLASS_NODE: nodes_shp_path, FEATURE_CLASS_EDGE: edges_shp_path }
         if self.debug:
             self._debug_print_file_paths()
 
@@ -47,15 +51,15 @@ class FloodingEventDataset():
         }
 
         included_features = {}
-        included_features[FeatureClass.NODE] = self._get_feature_list(node_features)
-        included_features[FeatureClass.EDGE] = self._get_feature_list(edge_features)
+        included_features[FEATURE_CLASS_NODE] = self._get_feature_list(node_features)
+        included_features[FEATURE_CLASS_EDGE] = self._get_feature_list(edge_features)
         self.feature_metadata = self._get_feature_metadata(included_features)
 
     def load(self) -> List[Data]:
         timesteps, edge_index, pos = self._get_graph_properties()
 
-        static_nodes, dynamic_nodes = self._get_features(FeatureClass.NODE)
-        static_edges, dynamic_edges = self._get_features(FeatureClass.EDGE)
+        static_nodes, dynamic_nodes = self._get_features(FEATURE_CLASS_NODE)
+        static_edges, dynamic_edges = self._get_features(FEATURE_CLASS_EDGE)
 
         if self.debug:
             self._debug_print_data_format()
@@ -66,8 +70,8 @@ class FloodingEventDataset():
             edge_features = self._get_timestep_data(i, static_edges, dynamic_edges)
 
             if self.debug:
-                self._debug_test_data_format(FeatureClass.NODE, i, node_features)
-                self._debug_test_data_format(FeatureClass.EDGE, i, edge_features)
+                self._debug_test_data_format(FEATURE_CLASS_NODE, i, node_features)
+                self._debug_test_data_format(FEATURE_CLASS_EDGE, i, edge_features)
 
             label_node = dynamic_nodes[i+1][:, :-1] # Water level
             label_edges = dynamic_edges[i+1] # Velocity
@@ -92,7 +96,7 @@ class FloodingEventDataset():
         yaml_metadata = file_utils.read_yaml_file(self.feature_metadata_path)
 
         feature_metadata = {}
-        for feature_class in FeatureClass:
+        for feature_class in [FEATURE_CLASS_NODE, FEATURE_CLASS_EDGE]:
             if feature_class not in included_features or feature_class not in yaml_metadata:
                 continue
 
@@ -113,10 +117,10 @@ class FloodingEventDataset():
         timesteps = self._load_feature_data(**property_metadata['timesteps'])
         timesteps = byte_to_timestamp(timesteps)
 
-        edge_index = self._load_feature_data(feature_class=FeatureClass.EDGE, **property_metadata['edge_index'])
+        edge_index = self._load_feature_data(feature_class=FEATURE_CLASS_EDGE, **property_metadata['edge_index'])
         edge_index = to_torch_tensor_w_transpose(edge_index)
 
-        pos = self._load_feature_data(feature_class=FeatureClass.NODE, **property_metadata['pos'])
+        pos = self._load_feature_data(feature_class=FEATURE_CLASS_NODE, **property_metadata['pos'])
         pos = to_torch_tensor_w_transpose(pos)
 
         if self.debug:
@@ -124,8 +128,8 @@ class FloodingEventDataset():
 
         return timesteps, edge_index, pos
     
-    def _get_features(self, feature_class: FeatureClass) -> Tuple[torch.Tensor, torch.Tensor]:
-        features = { FeatureType.STATIC: [], FeatureType.DYNAMIC: [] }
+    def _get_features(self, feature_class: str) -> Tuple[torch.Tensor, torch.Tensor]:
+        features = { FEATURE_TYPE_STATIC: [], FEATURE_TYPE_DYNAMIC: [] }
         for name, metadata in self.feature_metadata[feature_class].items():
             data = self._load_feature_data(feature_class=feature_class, **metadata)
 
@@ -133,7 +137,7 @@ class FloodingEventDataset():
                 transform_func = TRANSFORM_MAP[name]
                 data = transform_func(data)
 
-            if 'type' not in metadata or metadata['type'] not in FeatureType:
+            if 'type' not in metadata or metadata['type'] not in [FEATURE_TYPE_STATIC, FEATURE_TYPE_DYNAMIC]:
                 continue
 
             features[metadata['type']].append(data)
@@ -146,22 +150,22 @@ class FloodingEventDataset():
 
         return static_features, dynamic_features
 
-    def _load_feature_data(self, file: FeatureSource, **kwargs) -> np.ndarray:
-        if file == FeatureSource.HDF:
+    def _load_feature_data(self, file: str, **kwargs) -> np.ndarray:
+        if file == 'hdf':
             return file_utils.read_hdf_file_as_numpy(filepath=self.hdf_filepath, property_path=kwargs['path'])
-        if file == FeatureSource.SHP:
+        if file == 'shp':
             filepath = self.shp_filepath[kwargs['feature_class']]
             return file_utils.read_shp_file_as_numpy(filepath=filepath, columns=kwargs['column'])
         raise Exception('Invalid file type in feature metadata. Valid values are: hdf, shp.')
 
     def _format_features(self, features: dict) -> Tuple[torch.Tensor, torch.Tensor]:
         # Static features = (num_items, num_features)
-        static_features = torch.from_numpy(np.array(features[FeatureType.STATIC]))
+        static_features = torch.from_numpy(np.array(features[FEATURE_TYPE_STATIC]))
         if len(static_features) > 0:
             static_features = static_features.transpose(1, 0)
 
         # Dynamic features = (num_timesteps, num_items, num_features)
-        dynamic_features = torch.from_numpy(np.array(features[FeatureType.DYNAMIC]))
+        dynamic_features = torch.from_numpy(np.array(features[FEATURE_TYPE_DYNAMIC]))
         if len(dynamic_features) > 0:
             dynamic_features = dynamic_features.permute([1, 2, 0])
 
@@ -193,8 +197,8 @@ class FloodingEventDataset():
         self.log(f'\tGraph Metadata Filepath: {self.graph_metadata_path}')
         self.log(f'\tFeature Metadata Filepath: {self.feature_metadata_path}')
         self.log(f'\tHEC-RAS HDF Filepath: {self.hdf_filepath}')
-        self.log(f'\tNodes SHP Filepath: {self.shp_filepath[FeatureClass.NODE]}')
-        self.log(f'\tEdges SHP Filepath: {self.shp_filepath[FeatureClass.EDGE]}')
+        self.log(f'\tNodes SHP Filepath: {self.shp_filepath[FEATURE_CLASS_NODE]}')
+        self.log(f'\tEdges SHP Filepath: {self.shp_filepath[FEATURE_CLASS_EDGE]}')
     
     def _debug_print_graph_properties(self, timesteps: List[datetime], edge_index: Tensor, pos: Tensor):
         self.log('Graph properties:')
@@ -204,18 +208,18 @@ class FloodingEventDataset():
         self.log(f'\tEdge Index: {edge_index.shape}')
         self.log(f'\tPos: {pos.shape}')
     
-    def _debug_assign_features(self, feature_class: FeatureClass, feature_type: FeatureType, name: str, data: Tensor):
+    def _debug_assign_features(self, feature_class: str, feature_type: str, name: str, data: Tensor):
         if feature_class not in self.debug_features:
             self.debug_features[feature_class] = {}
         if feature_type not in self.debug_features[feature_class]:
             self.debug_features[feature_class][feature_type] = {}
         self.debug_features[feature_class][feature_type][name] = data
     
-    def _debug_print_loaded_features(self, feature_class: FeatureClass, static_features: Tensor, dynamic_features: Tensor):
+    def _debug_print_loaded_features(self, feature_class: str, static_features: Tensor, dynamic_features: Tensor):
         self.log(f'Successfully loaded for {feature_class}:')
         shape_map = {
-            FeatureType.STATIC: static_features.shape,
-            FeatureType.DYNAMIC: dynamic_features.shape,
+            FEATURE_TYPE_STATIC: static_features.shape,
+            FEATURE_TYPE_DYNAMIC: dynamic_features.shape,
         }
         for feat_type, features in self.debug_features[feature_class].items():
             self.log(f'\t{feat_type} (Shape: {shape_map[feat_type]}):')
@@ -228,22 +232,22 @@ class FloodingEventDataset():
             self.log(f'\t[')
             for feat_type, features in feat_type_dict.items():
                 for name in features.keys():
-                    if feat_type == FeatureType.STATIC:
+                    if feat_type == FEATURE_TYPE_STATIC:
                         self.log(f'\t\t{name} ({feat_type})')
-                    elif feat_type == FeatureType.DYNAMIC:
+                    elif feat_type == FEATURE_TYPE_DYNAMIC:
                         for i in range(self.previous_timesteps, 0, -1):
                             self.log(f'\t\t{name} t-{i} ({feat_type})')
                         self.log(f'\t\t{name} t ({feat_type})')
             self.log(f'\t]')
     
-    def _debug_test_data_format(self, feature_class: FeatureClass, timestep_idx: int, data: Tensor):
+    def _debug_test_data_format(self, feature_class: str, timestep_idx: int, data: Tensor):
         curr_idx = 0
         for feat_type, features in self.debug_features[feature_class].items():
-            if feat_type == FeatureType.STATIC:
+            if feat_type == FEATURE_TYPE_STATIC:
                 for orig_data in features.values():
                     assert torch.equal(data[:, curr_idx], Tensor(orig_data))
                     curr_idx += 1
-            elif feat_type == FeatureType.DYNAMIC:
+            elif feat_type == FEATURE_TYPE_DYNAMIC:
                 for orig_data in features.values():
                     for i in range(self.previous_timesteps, 0, -1):
                         if timestep_idx-i < 0:
