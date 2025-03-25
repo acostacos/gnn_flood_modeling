@@ -100,7 +100,7 @@ class FloodingEventDataset():
             for name, data in yaml_metadata[feature_class].items():
                 if name in included_features[feature_class]:
                     local_metadata |= {name: data}
-                    self.dataset_info[f'num_{data['type']}_{feature_class}'] += 1
+                    self.dataset_info[f"num_{data['type']}_{feature_class}"] += 1
 
             feature_metadata[feature_class] = local_metadata
 
