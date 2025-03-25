@@ -1,4 +1,4 @@
-from enum import StrEnum
+from strenum import StrEnum
 
 class GNNConvolution(StrEnum):
     GCN = 'gcn'

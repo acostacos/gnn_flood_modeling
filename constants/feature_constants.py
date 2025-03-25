@@ -1,4 +1,4 @@
-from enum import StrEnum
+from strenum import StrEnum
 
 class FeatureClass(StrEnum):
     NODE = "node_features"
