@@ -1,5 +1,5 @@
 #!/bin/sh
-#SBATCH --job-name=lr_preprocess
+#SBATCH --job-name=lr_train_node
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --partition=gpu-long
 #SBATCH --gpus=a100-40:1
