@@ -91,7 +91,7 @@ def main():
         for file in avail_files:
             train_datasets = [os.path.join(data_dir_path, f'{f}.pkl') for f in avail_files if f != file]
             test_dataset = os.path.join(data_dir_path, f'{file}.pkl')
-            logger.log(f'Training with {', '.join([f for f in avail_files if f != file])}. Testing on {file}.')
+            logger.log(f"Training with {', '.join([f for f in avail_files if f != file])}. Testing on {file}.")
 
             model = model_factory(args.model, **model_params, **base_model_params)
             loss_func = get_loss_func(loss_func_key)
