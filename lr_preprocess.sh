@@ -5,4 +5,4 @@
 
 . venv/bin/activate
 
-srun python3 preprocess.py  --config_path='configs/lr_preprocess_config.yaml' --log_path='logs/lr_preprocess.log'
+srun python3 preprocess.py  --config_path='configs/lr_preprocess_config.yaml' --debug True --log_path='logs/lr_preprocess.log'
