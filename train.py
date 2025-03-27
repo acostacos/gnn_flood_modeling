@@ -5,7 +5,6 @@ import torch
 import yaml
 
 from argparse import ArgumentParser, Namespace
-from typing import Tuple
 from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, SWEGNN
 from training import NodeRegressionTrainer, DualRegressionTrainer
 from utils import Logger, file_utils
@@ -21,21 +20,21 @@ def parse_args() -> Namespace:
     parser.add_argument("--log_path", type=str, default=None, help='Path to log file')
     return parser.parse_args()
 
-def model_factory(model_name: str, **kwargs) -> Tuple[torch.nn.Module, str]:
+def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
     if model_name == 'NodeEdgeGNN':
-        return NodeEdgeGNN(**kwargs), 'l1'
+        return NodeEdgeGNN(**kwargs)
     if model_name == 'SWEGNN':
-        return SWEGNN(**kwargs), 'l1'
+        return SWEGNN(**kwargs)
     if model_name == 'GCN':
-        return GCN(**kwargs), 'l1'
+        return GCN(**kwargs)
     if model_name == 'GAT':
-        return GAT(**kwargs), 'l1'
+        return GAT(**kwargs)
     if model_name == 'GIN':
-        return GIN(**kwargs), 'l1'
+        return GIN(**kwargs)
     if model_name == 'GraphSAGE':
-        return GraphSAGE(**kwargs), 'l1'
+        return GraphSAGE(**kwargs)
     if model_name == 'MLP':
-        return MLP(**kwargs), 'l1'
+        return MLP(**kwargs)
     raise ValueError(f'Invalid model name: {model_name}')
 
 def get_loss_func_key(model_name: str) -> str:
