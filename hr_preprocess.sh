@@ -2,7 +2,7 @@
 #SBATCH --job-name=hr_preprocess
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --partition=long
-#SBATCH --mem-per-cpu=48000
+#SBATCH --mem-per-cpu=64000
 
 . venv/bin/activate
 
