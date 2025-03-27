@@ -1,9 +1,9 @@
 flood_event_parameters:
   hec_ras_hdf_paths:
-    hrp01: 'data/datasets/hr/M01.p03.hdf'
-    hrp04: 'data/datasets/hr/M01.p06.hdf'
-    hrp05: 'data/datasets/hr/M01.p07.hdf'
-    hrp08: 'data/datasets/hr/M01.p09.hdf'
+    hrp03: 'data/datasets/hr/M01.p03.hdf'
+    hrp06: 'data/datasets/hr/M01.p06.hdf'
+    hrp07: 'data/datasets/hr/M01.p07.hdf'
+    hrp09: 'data/datasets/hr/M01.p09.hdf'
 
 mesh_parameters:
   nodes_shp_path: 'data/datasets/hr/geometry/cell_centers.shp'
