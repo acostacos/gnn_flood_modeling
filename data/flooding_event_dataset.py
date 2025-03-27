@@ -5,7 +5,7 @@ from datetime import datetime
 from torch import Tensor
 from torch_geometric.data import Data
 from torch_geometric.transforms import ToUndirected
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 from utils import file_utils, Logger
 
 from .feature_transform import TRANSFORM_MAP, byte_to_timestamp, to_torch_tensor_w_transpose
@@ -30,6 +30,7 @@ class FloodingEventDataset():
                  logger: Logger = None):
         self.debug = debug
         self.debug_features = {}
+        self.debug_total_size = 0
         self.log = print
         if logger is not None and hasattr(logger, 'log'):
             self.log = logger.log
@@ -42,6 +43,7 @@ class FloodingEventDataset():
             self._debug_print_file_paths()
 
         self.previous_timesteps = previous_timesteps
+        self.dataset = None
         self.dataset_info = {
             'num_static_node_features': 0,
             'num_dynamic_node_features': 0,
@@ -64,7 +66,7 @@ class FloodingEventDataset():
         if self.debug:
             self._debug_print_data_format()
 
-        dataset = []
+        self.dataset = []
         for i in range(len(timesteps)-1): # Last time step is only used as a label
             node_features = self._get_timestep_data(i, static_nodes, dynamic_nodes)
             edge_features = self._get_timestep_data(i, static_edges, dynamic_edges)
@@ -75,17 +77,29 @@ class FloodingEventDataset():
 
             label_node = dynamic_nodes[i+1][:, :-1] # Water level
             label_edges = dynamic_edges[i+1] # Velocity
+            self._debug_compute_total_size([node_features, edge_index, edge_features, label_node, label_edges])
             data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_features,
-                        y=label_node, y_edge=label_edges, pos=pos)
+                        y=label_node, y_edge=label_edges, pos=pos, timestep=timesteps[i])
             data = ToUndirected()(data) # Transform to undirected graph
 
-            dataset.append(data)
+            self.dataset.append(data)
         
         if self.debug:
-            self._debug_print_dataset_loaded(dataset)
+            self._debug_print_dataset_loaded(self.dataset)
 
-        return dataset, self.dataset_info
-    
+    def save(self, output_file_path: str, dataset_key: str):
+        if self.dataset is None:
+            raise ValueError('Dataset has not been loaded.')
+
+        file_utils.save_to_shelve_file(output_file_path, dataset_key, self.dataset)
+        file_utils.save_to_shelve_file(output_file_path, 'dataset_info', self.dataset_info)
+
+    def get_dataset(self) -> Tuple[List[Data], Dict]:
+        if self.dataset is None:
+            raise ValueError('Dataset has not been loaded.')
+
+        return self.dataset, self.dataset_info
+
 
     # =========== Helper Methods ===========
 
@@ -156,7 +170,7 @@ class FloodingEventDataset():
         if file == 'shp':
             filepath = self.shp_filepath[kwargs['feature_class']]
             return file_utils.read_shp_file_as_numpy(filepath=filepath, columns=kwargs['column'])
-        raise Exception('Invalid file type in feature metadata. Valid values are: hdf, shp.')
+        raise ValueError('Invalid file type in feature metadata. Valid values are: hdf, shp.')
 
     def _format_features(self, features: dict) -> Tuple[torch.Tensor, torch.Tensor]:
         # Static features = (num_items, num_features)
@@ -258,8 +272,13 @@ class FloodingEventDataset():
                     assert torch.equal(data[:, curr_idx], Tensor(orig_data[timestep_idx]))
                     curr_idx += 1
     
+    def _debug_compute_total_size(self, tensors: List[Tensor]):
+        for tensor in tensors:
+            self.debug_total_size += (tensor.element_size() * tensor.nelement())
+
     def _debug_print_dataset_loaded(self, dataset: List[Data]):
         self.log('Succesfully loaded dateset.')
+        self.log(f'Total size of dataset: {self.debug_total_size} bytes')
         self.log(f'Number of data points: {len(dataset)}')
         self.log(f'Sample data point: {dataset[0]}')
         self.log('Dataset Info:')

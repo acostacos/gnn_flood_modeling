@@ -1,0 +1,34 @@
+
+flood_event_parameters:
+  hec_ras_hdf_paths:
+    lrp01: 'data/datasets/lr/M01.p01.hdf'
+    lrp04: 'data/datasets/lr/M01.p04.hdf'
+    lrp05: 'data/datasets/lr/M01.p05.hdf'
+    lrp08: 'data/datasets/lr/M01.p08.hdf'
+
+mesh_parameters:
+  nodes_shp_path: 'data/datasets/lr/geometry/cell_centers.shp'
+  edges_shp_path: 'data/datasets/lr/geometry/links.shp'
+
+dataset_parameters:
+  graph_metadata_path: 'data/graph_metadata.yaml'
+  feature_metadata_path: 'data/feature_metadata.yaml'
+  previous_timesteps: 2
+
+output_parameters:
+  output_pkl_path: 'data/datasets/lr/lr_processed'
+
+node_features:
+  area          : True    # Cell area per node
+  roughness     : True    # Manning's roughness
+  elevation     : True    # Node elevation
+  rainfall      : True    # Rainfall added per interval at each node
+  water_level   : True    # Water level at each node
+
+edge_features:
+  direction_x   : True    # Link direction along x-axis
+  direction_y   : True    # Link direction along y-axis
+  face_length   : True    # Link face length
+  length        : True    # Link length
+  slope         : True    # Link slope
+  velocity      : True    # Water velocity at each link

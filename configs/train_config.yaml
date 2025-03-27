@@ -1,10 +1,13 @@
 dataset_parameters:
   graph_metadata_path: 'data/graph_metadata.yaml'
   feature_metadata_path: 'data/feature_metadata.yaml'
-  hec_ras_hdf_path: 'data/datasets/lr/M01.p01.hdf'
-  nodes_shp_path: 'data/datasets/lr/geometry/cell_centers.shp'
-  edges_shp_path: 'data/datasets/lr/geometry/links.shp'
+  hec_ras_hdf_path: 'data/datasets/hr/M01.p03.hdf'
+  nodes_shp_path: 'data/datasets/hr/geometry/cell_centers.shp'
+  edges_shp_path: 'data/datasets/hr/geometry/links.shp'
   previous_timesteps: 2
+
+  output_pkl_path: 'data/datasets/hr/processed_data.pkl'
+  dataset_info_path: 'data/datasets/hr/dataset_info.yaml'
 
 node_features:
   area          : True    # Cell area per node

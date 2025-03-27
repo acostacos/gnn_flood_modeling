@@ -1,3 +1,5 @@
+import os
+import shelve
 import geopandas as gpd
 import h5py
 import numpy as np
@@ -30,3 +32,14 @@ def get_property_from_path(dict: dict, dict_path: str, separator: str = '.') -> 
         else:
             raise KeyError(f'Key {key} not found in dictionary for path {dict_path}')
     return d
+
+def save_to_shelve_file(filepath: str, key: str, data: Any):
+    if not os.path.exists(os.path.dirname(filepath)):
+        os.makedirs(os.path.dirname(filepath))
+
+    if not os.path.exists(filepath):
+        with shelve.open(filepath):
+            pass
+
+    with shelve.open(filepath, 'w') as file:
+        file[key] = data
