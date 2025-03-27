@@ -5,15 +5,15 @@ import yaml
 
 from argparse import ArgumentParser, Namespace
 from typing import Tuple
-from data import FloodingEventDataset
+from data import PreprocessFloodEventDataset
 from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, SWEGNN
 from training import NodeRegressionTrainer, DualRegressionTrainer
-from utils import Logger
+from utils import Logger, file_utils
 from utils.loss_func_utils import get_loss_func
 
 def parse_args() -> Namespace:
     parser = ArgumentParser(description='')
-    parser.add_argument('--config_path', type=str, default='configs/preprocess_config.yaml', help='Path to config file')
+    parser.add_argument('--config_path', type=str, default='configs/train_config.yaml', help='Path to training config file')
     parser.add_argument("--model", type=str, default='NodeEdgeGNN', help='Model to use for training')
     parser.add_argument("--debug", type=bool, default=False, help='Add debug messages to output')
     parser.add_argument("--seed", type=int, default=42, help='Seed for random number generators')
@@ -60,23 +60,8 @@ def main():
         current_device = torch.cuda.get_device_name(args.device) if args.device != 'cpu' else 'CPU'
         logger.log(f'Using device: {current_device}')
 
-        dataset, dataset_info = FloodingEventDataset(node_features=config['node_features'],
-                            edge_features=config['edge_features'],
-                            debug=args.debug,
-                            logger=logger,
-                            **config['dataset_parameters']).load()
-        logger.log(f'Successfully loaded dataset with {len(dataset)} datapoints.')
-
-        train_config = config['training_parameters']
-        percent_train = round(train_config['percent_train'], 2)
-        logger.log(f'Train-test split: {(percent_train * 100):.0f}%-{((1 - percent_train) * 100):.0f}%')
-
-        num_train = int(len(dataset) * percent_train)
-
-        # TODO: Select train and test data more robustly
-        train_dataset = dataset[:num_train]
-        test_dataset = dataset[num_train:]
-
+        data_file_path = config['dataset_parameters']['data_file_path']
+        dataset_info = file_utils.read_shelve_file(data_file_path, 'dataset_info')
         logger.log(f'Using model: {args.model}')
         base_model_params = {
             'static_node_features': dataset_info['num_static_node_features'],
@@ -90,8 +75,9 @@ def main():
         model, loss_func_key = model_factory(args.model, **model_params, **base_model_params)
         logger.log(f'Using loss function: {loss_func_key}')
 
-        loss_func = get_loss_func(loss_func_key)
+        train_config = config['training_parameters']
         optimizer = torch.optim.Adam(model.parameters(), lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
+        loss_func = get_loss_func(loss_func_key)
         trainer = trainer_factory(args.model, train_dataset=train_dataset, val_dataset=test_dataset, model=model,
                                         loss_func=loss_func, optimizer=optimizer, num_epochs=train_config['num_epochs'],
                                         device=args.device, logger=logger)

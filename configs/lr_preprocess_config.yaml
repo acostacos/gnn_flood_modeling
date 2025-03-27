@@ -1,4 +1,3 @@
-
 flood_event_parameters:
   hec_ras_hdf_paths:
     lrp01: 'data/datasets/lr/M01.p01.hdf'
@@ -16,7 +15,8 @@ dataset_parameters:
   previous_timesteps: 2
 
 output_parameters:
-  output_pkl_path: 'data/datasets/lr/lr_processed'
+  output_dir: 'data/datasets/lr/processed/'
+  dataset_info_filename: 'dataset_info.yaml'
 
 node_features:
   area          : True    # Cell area per node

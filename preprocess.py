@@ -2,7 +2,7 @@ import traceback
 import yaml
 
 from argparse import ArgumentParser, Namespace
-from data import FloodingEventDataset
+from data import PreprocessFloodEventDataset
 from utils import Logger
 
 def parse_args() -> Namespace:
@@ -21,12 +21,15 @@ def main():
             config = yaml.safe_load(f)
 
         output_parameters = config['output_parameters']
-        if 'output_file_path' not in output_parameters or output_parameters['output_file_path'] is None:
-            raise ValueError('output_file_path not specified in config file.')
+        if 'output_dir' not in output_parameters or output_parameters['output_dir'] is None:
+            raise ValueError('output_dir not specified in config file.')
+        if 'dataset_info_filename' not in output_parameters or output_parameters['dataset_info_filename'] is None:
+            raise ValueError('dataset_info_filename not specified in config file.')
 
+        output_dir, dataset_info_filename = output_parameters['output_dir'], output_parameters['dataset_info_filename']
         flood_events = config['flood_event_parameters']['hec_ras_hdf_paths']
         for key, hec_ras_path in flood_events.items():
-            dataset = FloodingEventDataset(hec_ras_hdf_path=hec_ras_path,
+            dataset = PreprocessFloodEventDataset(hec_ras_hdf_path=hec_ras_path,
                                         node_features=config['node_features'],
                                         edge_features=config['edge_features'],
                                         debug=args.debug,
@@ -34,7 +37,7 @@ def main():
                                         **config['mesh_parameters'],
                                         **config['dataset_parameters'])
             dataset.load()
-            dataset.save(output_parameters['output_file_path'], key)
+            dataset.save(key, output_dir, dataset_info_filename)
     except yaml.YAMLError as e:
         logger.log(f'Error loading config YAML file. Error: {e}')
     except ValueError as e:

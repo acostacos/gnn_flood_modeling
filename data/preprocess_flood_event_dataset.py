@@ -1,3 +1,4 @@
+import os
 import torch
 import numpy as np
 
@@ -16,7 +17,7 @@ FEATURE_CLASS_EDGE = "edge_features"
 FEATURE_TYPE_STATIC = "static"
 FEATURE_TYPE_DYNAMIC = "dynamic"
 
-class FloodingEventDataset():
+class PreprocessFloodEventDataset():
     def __init__(self,
                  graph_metadata_path: str,
                  feature_metadata_path: str,
@@ -87,12 +88,33 @@ class FloodingEventDataset():
         if self.debug:
             self._debug_print_dataset_loaded(self.dataset)
 
-    def save(self, output_file_path: str, dataset_key: str):
+    def save(self, dataset_key: str, output_dir: str, dataset_info_filename: str):
         if self.dataset is None:
             raise ValueError('Dataset has not been loaded.')
 
-        file_utils.save_to_shelve_file(output_file_path, dataset_key, self.dataset)
-        file_utils.save_to_shelve_file(output_file_path, 'dataset_info', self.dataset_info)
+        dataset_path = f'{output_dir}{dataset_key}.pkl'
+        file_utils.save_iterable_to_pickle_file(dataset_path, self.dataset)
+
+        if self.debug:
+            self.log(f'Saved dataset to {dataset_path}')
+
+        dataset_info_path = f'{output_dir}{dataset_info_filename}'
+        if os.path.exists(dataset_info_path):
+            data = file_utils.read_yaml_file(dataset_info_path)
+            data[dataset_key] = {
+                'num_data_points': len(self.dataset),
+            }
+        else:
+            data = {
+                dataset_key: {
+                    'num_data_points': len(self.dataset),
+                },
+                'dataset_info': self.dataset_info,
+            }
+        file_utils.save_to_yaml_file(dataset_info_path, data)
+
+        if self.debug:
+            self.log(f'Saved dataset info to {dataset_info_path}')
 
     def get_dataset(self) -> Tuple[List[Data], Dict]:
         if self.dataset is None:

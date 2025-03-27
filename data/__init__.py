@@ -1,3 +1,3 @@
-from .flooding_event_dataset import FloodingEventDataset
+from .preprocess_flood_event_dataset import PreprocessFloodEventDataset
 
-__all__ = ['FloodingEventDataset']
+__all__ = ['PreprocessFloodEventDataset']

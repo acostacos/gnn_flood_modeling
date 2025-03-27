@@ -1,16 +1,23 @@
-import os
-import shelve
 import geopandas as gpd
 import h5py
 import numpy as np
+import os
+import pickle
 import yaml
 
-from typing import Any
+from typing import Any, Iterable
 
 def read_yaml_file(filepath: str) -> dict:
     with open(filepath, 'r') as file:
         data = yaml.safe_load(file)
     return data
+
+def save_to_yaml_file(filepath: str, data: dict):
+    if not os.path.exists(os.path.dirname(filepath)):
+        os.makedirs(os.path.dirname(filepath))
+
+    with open(filepath, 'w') as file:
+        yaml.dump(data, file)
 
 def read_shp_file_as_numpy(filepath: str, columns: str | list) -> np.ndarray:
     file = gpd.read_file(filepath)
@@ -33,13 +40,14 @@ def get_property_from_path(dict: dict, dict_path: str, separator: str = '.') -> 
             raise KeyError(f'Key {key} not found in dictionary for path {dict_path}')
     return d
 
-def save_to_shelve_file(filepath: str, key: str, data: Any):
+def save_iterable_to_pickle_file(filepath: str, iterable: Iterable):
+    # Remove file if it already exists
+    if os.path.exists(filepath):
+        os.remove(filepath)
+
     if not os.path.exists(os.path.dirname(filepath)):
         os.makedirs(os.path.dirname(filepath))
 
-    if not os.path.exists(filepath):
-        with shelve.open(filepath):
-            pass
-
-    with shelve.open(filepath, 'w') as file:
-        file[key] = data
+    with open(filepath, 'wb') as file:
+        for item in iterable:
+            pickle.dump(item, file)
