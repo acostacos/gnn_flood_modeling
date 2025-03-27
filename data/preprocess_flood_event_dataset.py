@@ -76,7 +76,7 @@ class PreprocessFloodEventDataset():
                 self._debug_test_data_format(FEATURE_CLASS_NODE, i, node_features)
                 self._debug_test_data_format(FEATURE_CLASS_EDGE, i, edge_features)
 
-            label_node = dynamic_nodes[i+1][:, :-1] # Water level
+            label_node = dynamic_nodes[i+1][:, [-1]] # Water level
             label_edges = dynamic_edges[i+1] # Velocity
             self._debug_compute_total_size([node_features, edge_index, edge_features, label_node, label_edges])
             data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_features,
@@ -92,13 +92,13 @@ class PreprocessFloodEventDataset():
         if self.dataset is None:
             raise ValueError('Dataset has not been loaded.')
 
-        dataset_path = f'{output_dir}{dataset_key}.pkl'
-        file_utils.save_iterable_to_pickle_file(dataset_path, self.dataset)
+        dataset_path = os.path.join(output_dir, f'{dataset_key}.pkl')
+        file_utils.save_to_pickle_file(dataset_path, self.dataset)
 
         if self.debug:
             self.log(f'Saved dataset to {dataset_path}')
 
-        dataset_info_path = f'{output_dir}{dataset_info_filename}'
+        dataset_info_path = os.path.join(output_dir, dataset_info_filename)
         if os.path.exists(dataset_info_path):
             data = file_utils.read_yaml_file(dataset_info_path)
             data[dataset_key] = {

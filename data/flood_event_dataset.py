@@ -1,42 +1,51 @@
-import os.path as osp
-
+import os
 import torch
-from torch_geometric.data import Dataset, Data
+import numpy as np
+import pickle
 
+from datetime import datetime
+from torch import Tensor
+from torch_geometric.data import Dataset, Data
+from torch_geometric.transforms import ToUndirected
+from typing import Tuple, List, Dict
+from utils import file_utils, Logger
 
 class FloodEventDataset(Dataset):
-    def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
+    def __init__(self,
+                 root: str,
+                 dataset_filename: str,
+                 dataset_info_filename: str,
+                 transform=None,
+                 pre_transform=None,
+                 pre_filter=None):
         super().__init__(root, transform, pre_transform, pre_filter)
+        self.dataset_path = os.path.join(root, dataset_filename)
+        self.dataset_length = self.get_dataset_length(root, dataset_filename, dataset_info_filename)
 
-    @property
-    def raw_file_names(self):
-        return ['some_file_1', 'some_file_2', ...]
-
-    @property
-    def processed_file_names(self):
-        return ['data_1.pt', 'data_2.pt', ...]
-
-    def download(self):
-        raise Exception('Run preprocess.py before training.')
-
-    def process(self):
-        idx = 0
-        for raw_path in self.raw_paths:
-            # Read data from `raw_path`.
-            data = Data(...)
-
-            if self.pre_filter is not None and not self.pre_filter(data):
-                continue
-
-            if self.pre_transform is not None:
-                data = self.pre_transform(data)
-
-            torch.save(data, osp.join(self.processed_dir, f'data_{idx}.pt'))
-            idx += 1
+    def get_dataset_length(self, root, dataset_filename, dataset_info_filename) -> int:
+        dataset_info = file_utils.read_yaml_file(os.path.join(root, dataset_info_filename))
+        dataset_key = os.path.basename(dataset_filename)
+        return dataset_info[dataset_key]['num_data_points']
 
     def len(self):
-        return len(self.processed_file_names)
+        return self.dataset_length
+
+    def load_objects(self):
+        with open(self.dataset_path) as f:
+            while True:
+                try:
+                    yield pickle.load(f)
+                except EOFError:
+                    break
 
     def get(self, idx):
-        data = torch.load(osp.join(self.processed_dir, f'data_{idx}.pt'))
-        return data
+        # with open(self.dataset_path, 'rb') as f:
+        #     while True:
+        #         try:
+        #             obj = pickle.load(f)
+        #             process(obj)
+        #         except EOFError:
+        #             break
+
+        # return data
+        return []

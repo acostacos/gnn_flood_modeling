@@ -1,8 +1,10 @@
 dataset_parameters:
   data_dir_path: 'data/datasets/init/processed'
+  dataset_info_filename: 'dataset_info.yaml'
 
 training_parameters:
   num_epochs      : 10            # Number of epochs
+  batch_size      : 32            # Batch size
   learning_rate   : 0.007         # learning rate
   weight_decay    : 0             # weight decay
 

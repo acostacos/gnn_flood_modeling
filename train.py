@@ -1,11 +1,11 @@
 import numpy as np
+import os
 import traceback
 import torch
 import yaml
 
 from argparse import ArgumentParser, Namespace
 from typing import Tuple
-from data import PreprocessFloodEventDataset
 from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, SWEGNN
 from training import NodeRegressionTrainer, DualRegressionTrainer
 from utils import Logger, file_utils
@@ -38,6 +38,9 @@ def model_factory(model_name: str, **kwargs) -> Tuple[torch.nn.Module, str]:
         return MLP(**kwargs), 'l1'
     raise ValueError(f'Invalid model name: {model_name}')
 
+def get_loss_func_key(model_name: str) -> str:
+    return 'l1'
+
 def trainer_factory(model_name: str, **kwargs):
     if model_name == 'NodeEdgeGNN':
         return DualRegressionTrainer(mode='node', **kwargs)
@@ -54,15 +57,21 @@ def main():
             np.random.seed(args.seed)
             torch.manual_seed(args.seed)
 
-        with open(args.config_path) as f:
-            config = yaml.safe_load(f)
+        config = file_utils.read_yaml_file(args.config_path)
 
         current_device = torch.cuda.get_device_name(args.device) if args.device != 'cpu' else 'CPU'
         logger.log(f'Using device: {current_device}')
 
-        data_file_path = config['dataset_parameters']['data_file_path']
-        dataset_info = file_utils.read_shelve_file(data_file_path, 'dataset_info')
-        logger.log(f'Using model: {args.model}')
+        dataset_parameters = config['dataset_parameters']
+        data_dir_path = dataset_parameters['data_dir_path']
+        dataset_info_filename = dataset_parameters['dataset_info_filename']
+
+        dataset_info_path = os.path.join(data_dir_path, dataset_info_filename)
+        if os.path.exists(data_dir_path) and os.path.exists(dataset_info_filename):
+            raise Exception('Dataset info file not found. Run preprocess.py before training.')
+
+        dataset_info_yaml = file_utils.read_yaml_file(dataset_info_path)
+        dataset_info = dataset_info_yaml['dataset_info']
         base_model_params = {
             'static_node_features': dataset_info['num_static_node_features'],
             'dynamic_node_features': dataset_info['num_dynamic_node_features'],
@@ -71,21 +80,31 @@ def main():
             'previous_timesteps': dataset_info['previous_timesteps'],
             'device': args.device,
         }
-        model_params = config['model_parameters'][args.model]
-        model, loss_func_key = model_factory(args.model, **model_params, **base_model_params)
+
+        loss_func_key = get_loss_func_key(args.model)
+        logger.log(f'Using model: {args.model}')
         logger.log(f'Using loss function: {loss_func_key}')
 
+        model_params = config['model_parameters'][args.model]
         train_config = config['training_parameters']
-        optimizer = torch.optim.Adam(model.parameters(), lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
-        loss_func = get_loss_func(loss_func_key)
-        trainer = trainer_factory(args.model, train_dataset=train_dataset, val_dataset=test_dataset, model=model,
-                                        loss_func=loss_func, optimizer=optimizer, num_epochs=train_config['num_epochs'],
-                                        device=args.device, logger=logger)
-        trainer.train()
-        trainer.validate()
-        stats = trainer.get_stats()
-        stats.print_stats_summary()
-        # stats.plot_train_loss()
+        avail_files = [k for k in dataset_info_yaml.keys() if k != 'dataset_info']
+        for file in avail_files:
+            train_datasets = [os.path.join(data_dir_path, f'{f}.pkl') for f in avail_files if f != file]
+            test_dataset = os.path.join(data_dir_path, f'{file}.pkl')
+            logger.log(f'Training with {', '.join([f for f in avail_files if f != file])}. Testing on {file}.')
+
+            model = model_factory(args.model, **model_params, **base_model_params)
+            loss_func = get_loss_func(loss_func_key)
+
+            optimizer = torch.optim.Adam(model.parameters(), lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
+            trainer = trainer_factory(args.model, train_datasets=train_datasets, val_dataset=test_dataset, model=model,
+                                            loss_func=loss_func, optimizer=optimizer, num_epochs=train_config['num_epochs'],
+                                            batch_size=train_config['batch_size'], device=args.device, logger=logger)
+            trainer.train()
+            trainer.validate()
+            stats = trainer.get_stats()
+            stats.print_stats_summary()
+            # stats.plot_train_loss()
 
         logger.log('================================================')
 

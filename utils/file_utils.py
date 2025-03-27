@@ -40,14 +40,14 @@ def get_property_from_path(dict: dict, dict_path: str, separator: str = '.') -> 
             raise KeyError(f'Key {key} not found in dictionary for path {dict_path}')
     return d
 
-def save_iterable_to_pickle_file(filepath: str, iterable: Iterable):
-    # Remove file if it already exists
-    if os.path.exists(filepath):
-        os.remove(filepath)
+def read_pickle_file(filepath: str) -> Any:
+    with open(filepath, 'rb') as file:
+        data = pickle.load(file)
+    return data
 
+def save_to_pickle_file(filepath: str, data: Any):
     if not os.path.exists(os.path.dirname(filepath)):
         os.makedirs(os.path.dirname(filepath))
 
     with open(filepath, 'wb') as file:
-        for item in iterable:
-            pickle.dump(item, file)
+        pickle.dump(data, file)

@@ -1,13 +1,13 @@
 flood_event_parameters:
-  hec_ras_hdf_paths:                                                      # Keys must correspond with output_file_paths
-    initp01: 'data/datasets/init/Model_01.p01.hdf'
-    initp02: 'data/datasets/init/Model_01.p02.hdf'
-    initp03: 'data/datasets/init/Model_01.p03.hdf'
-    initp04: 'data/datasets/init/Model_01.p04.hdf'
+  hec_ras_hdf_paths:
+    hrp01: 'data/datasets/hr/M01.p03.hdf'
+    hrp04: 'data/datasets/hr/M01.p06.hdf'
+    hrp05: 'data/datasets/hr/M01.p07.hdf'
+    hrp08: 'data/datasets/hr/M01.p09.hdf'
 
 mesh_parameters:
-  nodes_shp_path: 'data/datasets/init/geometry/cell_centers.shp'
-  edges_shp_path: 'data/datasets/init/geometry/links.shp'
+  nodes_shp_path: 'data/datasets/hr/geometry/cell_centers.shp'
+  edges_shp_path: 'data/datasets/hr/geometry/links.shp'
 
 dataset_parameters:
   graph_metadata_path: 'data/graph_metadata.yaml'
@@ -15,14 +15,14 @@ dataset_parameters:
   previous_timesteps: 2
 
 output_parameters:
-  output_dir: 'data/datasets/init/processed'
+  output_dir: 'data/datasets/hr/processed/'
   dataset_info_filename: 'dataset_info.yaml'
 
 node_features:
   area          : True    # Cell area per node
   roughness     : True    # Manning's roughness
   elevation     : True    # Node elevation
-  rainfall      : False    # Rainfall added per interval at each node
+  rainfall      : True    # Rainfall added per interval at each node
   water_level   : True    # Water level at each node
 
 edge_features:
