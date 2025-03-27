@@ -4,4 +4,6 @@
 #SBATCH --partition=long
 #SBATCH --mem-per-cpu=32000
 
+. venv/bin/activate
+
 srun python3 preprocess.py  --config_path='configs/hr_preprocess_config.yaml' --log_path='logs/hr_preprocess.log'
