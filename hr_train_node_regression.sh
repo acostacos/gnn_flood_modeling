@@ -5,6 +5,9 @@
 #SBATCH --gpus=a100-80:1
 #SBATCH --mem-per-cpu=48000
 
+nvidia-smi
+
+. venv/bin/activate
 
 srun python train.py --model 'GCN' --config_path='configs/hr_train_config.yaml' --log_path 'logs/hr/hr_gcn.log' --seed 42
 srun python train.py --model 'GAT' --config_path='configs/hr_train_config.yaml' --log_path 'logs/hr/hr_gat.log' --seed 42
