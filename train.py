@@ -1,5 +1,7 @@
+import gc
 import numpy as np
 import os
+import psutil
 import traceback
 import torch
 import yaml
@@ -10,7 +12,7 @@ from data import FloodEventDataset
 from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, SWEGNN
 from training import NodeRegressionTrainer, DualRegressionTrainer
 from torch_geometric.transforms import Compose, ToUndirected
-from utils import Logger, file_utils
+from utils import convert_utils, Logger, file_utils
 from utils.loss_func_utils import get_loss_func
 
 def parse_args() -> Namespace:
@@ -52,6 +54,24 @@ def trainer_factory(model_name: str, **kwargs):
     if model_name == 'NodeEdgeGNN':
         return NodeRegressionTrainer(mode='node', **kwargs)
     return NodeRegressionTrainer(**kwargs)
+
+def print_memory_usage(logger: Logger):
+    process = psutil.Process(os.getpid())
+
+    ram_used = process.memory_info().rss  # RSS (Resident Set Size) in GB
+    logger.log(f"RAM Usage: {convert_utils.bytes_to_gb(ram_used)} GB")
+
+    num_cores = psutil.cpu_count()
+    cpu_percent = process.cpu_percent(interval=1.0)
+    logger.log(f"CPU Usage: {cpu_percent:.2f}%")
+    logger.log(f"CPU Usage Per-core ({num_cores} cores): {(cpu_percent / num_cores):.2f}%")
+
+    gpu_allocated = torch.cuda.memory_allocated()
+    gpu_cached = torch.cuda.memory_reserved()
+    logger.log(f"GPU Allocated: {convert_utils.bytes_to_gb(gpu_allocated)}GB")
+    logger.log(f"GPU Cached: {convert_utils.bytes_to_gb(gpu_cached)}GB")
+
+    gc.collect()
 
 def main():
     args = parse_args()
@@ -128,6 +148,9 @@ def main():
                 torch.save(model.state_dict(), model_path)
 
                 logger.log(f'Saved model to: {model_path}')
+            
+            logger.log('Current Memory Usage: ')
+            print_memory_usage(logger)
 
         logger.log('================================================')
 

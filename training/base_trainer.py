@@ -27,8 +27,15 @@ class BaseTrainer:
         self.loss_func = loss_func
         self.optimizer = optimizer
         self.num_epochs = num_epochs
-        self.batch_size = batch_size
         self.device = device
+
+        self.data_loader_params = {
+            'batch_size': batch_size,
+            'pin_memory': True,
+            'num_workers': 2,
+            'pin_memory': True,
+            'persistent_workers': True,
+        }
 
         self.log = print
         if logger is not None and hasattr(logger, 'log'):
@@ -44,7 +51,7 @@ class BaseTrainer:
             len_training_samples = 0
             for dataset in self.train_datasets:
                 len_training_samples += len(dataset)
-                dataloader = DataLoader(dataset, batch_size=self.batch_size)
+                dataloader = DataLoader(dataset, **self.data_loader_params)
 
                 for batch in dataloader:
                     self.optimizer.zero_grad()
@@ -70,7 +77,7 @@ class BaseTrainer:
         running_loss = 0.0
 
         len_dataset = len(self.val_dataset)
-        dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size)
+        dataloader = DataLoader(self.val_dataset, **self.data_loader_params)
 
         with torch.no_grad():
             for batch in dataloader:

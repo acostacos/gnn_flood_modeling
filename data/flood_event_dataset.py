@@ -8,7 +8,7 @@ from torch import Tensor
 from torch_geometric.data import Dataset, Data
 from torch_geometric.transforms import ToUndirected
 from typing import Tuple, List, Dict
-from utils import file_utils, Logger
+from utils import convert_utils, file_utils, Logger
 
 from .dataset_debug_helper import DatasetDebugHelper
 from .feature_transform import TRANSFORM_MAP, byte_to_timestamp, to_torch_tensor_w_transpose
@@ -18,6 +18,8 @@ FEATURE_CLASS_EDGE = "edge_features"
 
 FEATURE_TYPE_STATIC = "static"
 FEATURE_TYPE_DYNAMIC = "dynamic"
+
+MAX_CACHE_SIZE_IN_GB = 12
 
 class FloodEventDataset(Dataset):
     def __init__(self,
@@ -77,6 +79,10 @@ class FloodEventDataset(Dataset):
 
         super().__init__(root_dir, transform, pre_transform, pre_filter, log=debug)
 
+        # In memory cache
+        self.cache = {}
+        self.estimated_cache_size = 0
+
     @property
     def raw_file_names(self):
         return [self.hdf_file, self.nodes_shp_file, self.edges_shp_file]
@@ -132,7 +138,18 @@ class FloodEventDataset(Dataset):
         return len(self.timesteps) - 1 # Last time step is only used as a label
 
     def get(self, idx):
-        data = torch.load(self.processed_paths[idx])
+        filename = self.processed_paths[idx]
+
+        if filename in self.cache:
+            data = self.cache[filename]
+            return data
+
+        data = torch.load(filename)
+
+        if self.estimated_cache_size < convert_utils.gb_to_bytes(MAX_CACHE_SIZE_IN_GB):
+            self.cache[filename] = data
+            self.estimated_cache_size += os.path.getsize(filename)
+
         return data
 
     def get_dataset_info(self) -> Dict | None:
