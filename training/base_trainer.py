@@ -6,7 +6,7 @@ from torch.optim import Optimizer
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from typing import Any, Callable, List
-from utils import Logger, file_utils
+from utils import Logger
 
 from .training_stats import TrainingStats
 

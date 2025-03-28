@@ -4,8 +4,10 @@ import torch
 import yaml
 
 from argparse import ArgumentParser, Namespace
+from datetime import datetime
 from data import FloodEventDataset
 from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, SWEGNN
+from pathlib import Path
 from training import NodeRegressionTrainer, DualRegressionTrainer
 from utils import Logger, file_utils
 from utils.loss_func_utils import get_loss_func
@@ -18,6 +20,7 @@ def parse_args() -> Namespace:
     parser.add_argument("--seed", type=int, default=42, help='Seed for random number generators')
     parser.add_argument("--device", type=str, default=('cuda' if torch.cuda.is_available() else 'cpu'), help='Device to run on')
     parser.add_argument("--log_path", type=str, default=None, help='Path to log file')
+    parser.add_argument("--model_dir", type=str, default=None, help='Path to directory to save trained models')
     return parser.parse_args()
 
 def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
@@ -80,6 +83,8 @@ def main():
         logger.log(f'Using model: {args.model}')
         logger.log(f'Using loss function: {loss_func_key}')
 
+
+        curr_date_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         train_config = config['training_parameters']
         model_params = config['model_parameters'][args.model]
         base_model_params = {
@@ -106,6 +111,11 @@ def main():
             stats = trainer.get_stats()
             stats.print_stats_summary()
             # stats.plot_train_loss()
+
+            if args.model_dir is not None:
+                model_name = f'{args.model}_{event_key}_{curr_date_str}.pt'
+                model_path = Path(args.model_dir) / model_name
+                torch.save(model.state_dict(), model_path)
 
         logger.log('================================================')
 
