@@ -9,7 +9,7 @@ from torch_geometric.transforms import ToUndirected
 from typing import Tuple, List, Dict
 from utils import file_utils, Logger
 
-from .dataset_debug_helper import DebugHelper
+from .dataset_debug_helper import DatasetDebugHelper
 from .feature_transform import TRANSFORM_MAP, byte_to_timestamp, to_torch_tensor_w_transpose
 
 FEATURE_CLASS_NODE = "node_features"
@@ -36,7 +36,7 @@ class PreprocessFloodEventDataset():
         
         self.debug = debug
         if self.debug:
-            self.debug_helper = DebugHelper(log)
+            self.debug_helper = DatasetDebugHelper(log)
 
         self.graph_metadata_path = graph_metadata_path
         self.feature_metadata_path = feature_metadata_path

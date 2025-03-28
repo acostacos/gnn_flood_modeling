@@ -10,7 +10,7 @@ from torch_geometric.transforms import ToUndirected
 from typing import Tuple, List
 from utils import file_utils, Logger
 
-from .dataset_debug_helper import DebugHelper
+from .dataset_debug_helper import DatasetDebugHelper
 from .feature_transform import TRANSFORM_MAP, byte_to_timestamp, to_torch_tensor_w_transpose
 
 FEATURE_CLASS_NODE = "node_features"
@@ -40,7 +40,7 @@ class FloodEventDataset(InMemoryDataset):
         
         self.debug = debug
         if self.debug:
-            self.debug_helper = DebugHelper(log)
+            self.debug_helper = DatasetDebugHelper(log)
 
         current_dir = Path(__file__).parent
         self.graph_metadata_path = current_dir / 'graph_metadata.yaml'

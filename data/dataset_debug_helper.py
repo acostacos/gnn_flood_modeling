@@ -12,7 +12,7 @@ FEATURE_CLASS_EDGE = "edge_features"
 FEATURE_TYPE_STATIC = "static"
 FEATURE_TYPE_DYNAMIC = "dynamic"
 
-class DebugHelper:
+class DatasetDebugHelper:
     def __init__(self, logger: Callable):
         self.logger = logger
         self.debug_features = {}
