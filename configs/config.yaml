@@ -47,7 +47,6 @@ training_parameters:
 
 model_parameters:
   NodeEdgeGNN:
-    mode: 'node'
     hidden_features: 32
     num_layers: 2
     activation: 'prelu'

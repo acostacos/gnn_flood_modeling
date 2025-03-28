@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import traceback
 import torch
 import yaml
@@ -7,15 +8,15 @@ from argparse import ArgumentParser, Namespace
 from datetime import datetime
 from data import FloodEventDataset
 from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, SWEGNN
-from pathlib import Path
 from training import NodeRegressionTrainer, DualRegressionTrainer
+from torch_geometric.transforms import Compose, ToUndirected
 from utils import Logger, file_utils
 from utils.loss_func_utils import get_loss_func
 
 def parse_args() -> Namespace:
     parser = ArgumentParser(description='')
     parser.add_argument('--config_path', type=str, default='configs/config.yaml', help='Path to training config file')
-    parser.add_argument("--model", type=str, default='NodeEdgeGNN', help='Model to use for training')
+    parser.add_argument("--model", type=str, default='NodeEdgeGNN_Dual', help='Model to use for training')
     parser.add_argument("--debug", type=bool, default=False, help='Add debug messages to output')
     parser.add_argument("--seed", type=int, default=42, help='Seed for random number generators')
     parser.add_argument("--device", type=str, default=('cuda' if torch.cuda.is_available() else 'cpu'), help='Device to run on')
@@ -24,7 +25,7 @@ def parse_args() -> Namespace:
     return parser.parse_args()
 
 def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
-    if model_name == 'NodeEdgeGNN':
+    if model_name == 'NodeEdgeGNN' or model_name == 'NodeEdgeGNN_Dual':
         return NodeEdgeGNN(**kwargs)
     if model_name == 'SWEGNN':
         return SWEGNN(**kwargs)
@@ -41,11 +42,15 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
     raise ValueError(f'Invalid model name: {model_name}')
 
 def get_loss_func_key(model_name: str) -> str:
+    if model_name == 'NodeEdgeGNN_Dual':
+        return 'combined_l1'
     return 'l1'
 
 def trainer_factory(model_name: str, **kwargs):
+    if model_name == 'NodeEdgeGNN_Dual':
+        return DualRegressionTrainer(mode='dual', **kwargs)
     if model_name == 'NodeEdgeGNN':
-        return DualRegressionTrainer(mode='node', **kwargs)
+        return NodeRegressionTrainer(mode='node', **kwargs)
     return NodeRegressionTrainer(**kwargs)
 
 def main():
@@ -68,25 +73,27 @@ def main():
         dataset_parameters = config['dataset_parameters']
         dataset_info_path = dataset_parameters['dataset_info_path']
         datasets = {}
+        transform = Compose([ToUndirected()])
         for event_key, event_parameters in dataset_parameters['flood_events'].items():
             dataset = FloodEventDataset(**event_parameters,
                         dataset_info_path=dataset_info_path,
                         previous_timesteps=dataset_parameters['previous_timesteps'],
                         node_features=dataset_parameters['node_features'],
                         edge_features=dataset_parameters['edge_features'],
+                        transform=transform,
                         debug=args.debug)
             datasets[event_key] = dataset
         dataset_info = file_utils.read_yaml_file(dataset_info_path)
 
         # Training
+        model_key = 'NodeEdgeGNN' if args.model == 'NodeEdgeGNN_Dual' else args.model
+        model_params = config['model_parameters'][model_key]
         loss_func_key = get_loss_func_key(args.model)
         logger.log(f'Using model: {args.model}')
         logger.log(f'Using loss function: {loss_func_key}')
 
-
         curr_date_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         train_config = config['training_parameters']
-        model_params = config['model_parameters'][args.model]
         base_model_params = {
             'static_node_features': dataset_info['num_static_node_features'],
             'dynamic_node_features': dataset_info['num_dynamic_node_features'],
@@ -113,9 +120,14 @@ def main():
             # stats.plot_train_loss()
 
             if args.model_dir is not None:
+                if not os.path.exists(args.model_dir):
+                    os.makedirs(args.model_dir)
+
                 model_name = f'{args.model}_{event_key}_{curr_date_str}.pt'
-                model_path = Path(args.model_dir) / model_name
+                model_path = os.path.join(args.model_dir, model_name)
                 torch.save(model.state_dict(), model_path)
+
+                logger.log(f'Saved model to: {model_path}')
 
         logger.log('================================================')
 
