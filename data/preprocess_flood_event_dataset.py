@@ -9,6 +9,7 @@ from torch_geometric.transforms import ToUndirected
 from typing import Tuple, List, Dict
 from utils import file_utils, Logger
 
+from .dataset_debug_helper import DebugHelper
 from .feature_transform import TRANSFORM_MAP, byte_to_timestamp, to_torch_tensor_w_transpose
 
 FEATURE_CLASS_NODE = "node_features"
@@ -29,19 +30,20 @@ class PreprocessFloodEventDataset():
                  edge_features: dict[str, bool] = {},
                  debug: bool = False,
                  logger: Logger = None):
-        self.debug = debug
-        self.debug_features = {}
-        self.debug_total_size = 0
-        self.log = print
+        log = print
         if logger is not None and hasattr(logger, 'log'):
-            self.log = logger.log
+            log = logger.log
+        
+        self.debug = debug
+        if self.debug:
+            self.debug_helper = DebugHelper(log)
 
         self.graph_metadata_path = graph_metadata_path
         self.feature_metadata_path = feature_metadata_path
         self.hdf_filepath = hec_ras_hdf_path
         self.shp_filepath = { FEATURE_CLASS_NODE: nodes_shp_path, FEATURE_CLASS_EDGE: edges_shp_path }
         if self.debug:
-            self._debug_print_file_paths()
+            self.debug_helper.print_file_paths(self.graph_metadata_path, self.feature_metadata_path, self.hdf_filepath, self.shp_filepath)
 
         self.previous_timesteps = previous_timesteps
         self.dataset = None
@@ -65,7 +67,7 @@ class PreprocessFloodEventDataset():
         static_edges, dynamic_edges = self._get_features(FEATURE_CLASS_EDGE)
 
         if self.debug:
-            self._debug_print_data_format()
+            self.debug_helper.print_data_format(self.previous_timesteps)
 
         self.dataset = []
         for i in range(len(timesteps)-1): # Last time step is only used as a label
@@ -73,20 +75,21 @@ class PreprocessFloodEventDataset():
             edge_features = self._get_timestep_data(i, static_edges, dynamic_edges)
 
             if self.debug:
-                self._debug_test_data_format(FEATURE_CLASS_NODE, i, node_features)
-                self._debug_test_data_format(FEATURE_CLASS_EDGE, i, edge_features)
+                self.debug_helper.test_data_format(FEATURE_CLASS_NODE, i, node_features, self.previous_timesteps)
+                self.debug_helper.test_data_format(FEATURE_CLASS_EDGE, i, edge_features, self.previous_timesteps)
 
             label_node = dynamic_nodes[i+1][:, [-1]] # Water level
             label_edges = dynamic_edges[i+1] # Velocity
-            self._debug_compute_total_size([node_features, edge_index, edge_features, label_node, label_edges])
+            self.debug_helper.compute_total_size([node_features, edge_index, edge_features, label_node, label_edges])
             data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_features,
                         y=label_node, y_edge=label_edges, pos=pos, timestep=timesteps[i])
             data = ToUndirected()(data) # Transform to undirected graph
 
             self.dataset.append(data)
-        
+
         if self.debug:
-            self._debug_print_dataset_loaded(self.dataset)
+            self.debug_helper.print_dataset_loaded(self.dataset, self.dataset_info)
+            self.debug_helper.clear()
 
     def save(self, dataset_key: str, output_dir: str, dataset_info_filename: str):
         if self.dataset is None:
@@ -94,9 +97,6 @@ class PreprocessFloodEventDataset():
 
         dataset_path = os.path.join(output_dir, f'{dataset_key}.pkl')
         file_utils.save_to_pickle_file(dataset_path, self.dataset)
-
-        if self.debug:
-            self.log(f'Saved dataset to {dataset_path}')
 
         dataset_info_path = os.path.join(output_dir, dataset_info_filename)
         if os.path.exists(dataset_info_path):
@@ -114,7 +114,7 @@ class PreprocessFloodEventDataset():
         file_utils.save_to_yaml_file(dataset_info_path, data)
 
         if self.debug:
-            self.log(f'Saved dataset info to {dataset_info_path}')
+            self.debug_helper.print_dataset_saved(dataset_path, dataset_info_path)
 
     def get_dataset(self) -> Tuple[List[Data], Dict]:
         if self.dataset is None:
@@ -160,7 +160,7 @@ class PreprocessFloodEventDataset():
         pos = to_torch_tensor_w_transpose(pos)
 
         if self.debug:
-            self._debug_print_graph_properties(timesteps, edge_index, pos)
+            self.debug_helper.print_graph_properties(timesteps, edge_index, pos)
 
         return timesteps, edge_index, pos
     
@@ -178,11 +178,11 @@ class PreprocessFloodEventDataset():
 
             features[metadata['type']].append(data)
             if self.debug:
-                self._debug_assign_features(feature_class, metadata['type'], name, data)
+                self.debug_helper.assign_features(feature_class, metadata['type'], name, data)
 
         static_features, dynamic_features = self._format_features(features)
         if self.debug:
-            self._debug_print_loaded_features(feature_class, static_features, dynamic_features)
+            self.debug_helper.print_loaded_features(feature_class, static_features, dynamic_features)
 
         return static_features, dynamic_features
 
@@ -225,84 +225,3 @@ class PreprocessFloodEventDataset():
             ts_dynamic_features = ts_dynamic_features.permute((1, 2, 0)).flatten(start_dim=1)
 
         return torch.cat([static_features, ts_dynamic_features], dim=1)
-
-    # =========== Debug Methods ===========
-
-    def _debug_print_file_paths(self):
-        self.log('Loading data from the following files:')
-        self.log(f'\tGraph Metadata Filepath: {self.graph_metadata_path}')
-        self.log(f'\tFeature Metadata Filepath: {self.feature_metadata_path}')
-        self.log(f'\tHEC-RAS HDF Filepath: {self.hdf_filepath}')
-        self.log(f'\tNodes SHP Filepath: {self.shp_filepath[FEATURE_CLASS_NODE]}')
-        self.log(f'\tEdges SHP Filepath: {self.shp_filepath[FEATURE_CLASS_EDGE]}')
-    
-    def _debug_print_graph_properties(self, timesteps: List[datetime], edge_index: Tensor, pos: Tensor):
-        self.log('Graph properties:')
-        self.log(f'\tTimesteps: {len(timesteps)}')
-        if len(timesteps) > 1:
-            self.log(f'\tTimestep delta: {timesteps[1] - timesteps[0]}')
-        self.log(f'\tEdge Index: {edge_index.shape}')
-        self.log(f'\tPos: {pos.shape}')
-    
-    def _debug_assign_features(self, feature_class: str, feature_type: str, name: str, data: Tensor):
-        if feature_class not in self.debug_features:
-            self.debug_features[feature_class] = {}
-        if feature_type not in self.debug_features[feature_class]:
-            self.debug_features[feature_class][feature_type] = {}
-        self.debug_features[feature_class][feature_type][name] = data
-    
-    def _debug_print_loaded_features(self, feature_class: str, static_features: Tensor, dynamic_features: Tensor):
-        self.log(f'Successfully loaded for {feature_class}:')
-        shape_map = {
-            FEATURE_TYPE_STATIC: static_features.shape,
-            FEATURE_TYPE_DYNAMIC: dynamic_features.shape,
-        }
-        for feat_type, features in self.debug_features[feature_class].items():
-            self.log(f'\t{feat_type} (Shape: {shape_map[feat_type]}):')
-            for name, data in features.items():
-                self.log(f'\t\t{name}: {data.shape}')
-    
-    def _debug_print_data_format(self):
-        for feat_class, feat_type_dict in self.debug_features.items():
-            self.log(f'Expected {feat_class} format:')
-            self.log(f'\t[')
-            for feat_type, features in feat_type_dict.items():
-                for name in features.keys():
-                    if feat_type == FEATURE_TYPE_STATIC:
-                        self.log(f'\t\t{name} ({feat_type})')
-                    elif feat_type == FEATURE_TYPE_DYNAMIC:
-                        for i in range(self.previous_timesteps, 0, -1):
-                            self.log(f'\t\t{name} t-{i} ({feat_type})')
-                        self.log(f'\t\t{name} t ({feat_type})')
-            self.log(f'\t]')
-    
-    def _debug_test_data_format(self, feature_class: str, timestep_idx: int, data: Tensor):
-        curr_idx = 0
-        for feat_type, features in self.debug_features[feature_class].items():
-            if feat_type == FEATURE_TYPE_STATIC:
-                for orig_data in features.values():
-                    assert torch.equal(data[:, curr_idx], Tensor(orig_data))
-                    curr_idx += 1
-            elif feat_type == FEATURE_TYPE_DYNAMIC:
-                for orig_data in features.values():
-                    for i in range(self.previous_timesteps, 0, -1):
-                        if timestep_idx-i < 0:
-                            assert torch.all(data[:, curr_idx] == 0)
-                        else:
-                            assert torch.equal(data[:, curr_idx], Tensor(orig_data[timestep_idx-i]))
-                        curr_idx += 1
-                    assert torch.equal(data[:, curr_idx], Tensor(orig_data[timestep_idx]))
-                    curr_idx += 1
-    
-    def _debug_compute_total_size(self, tensors: List[Tensor]):
-        for tensor in tensors:
-            self.debug_total_size += (tensor.element_size() * tensor.nelement())
-
-    def _debug_print_dataset_loaded(self, dataset: List[Data]):
-        self.log('Succesfully loaded dateset.')
-        self.log(f'Total size of dataset: {self.debug_total_size} bytes')
-        self.log(f'Number of data points: {len(dataset)}')
-        self.log(f'Sample data point: {dataset[0]}')
-        self.log('Dataset Info:')
-        for key, value in self.dataset_info.items():
-            self.log(f'\t{key}: {value}')
