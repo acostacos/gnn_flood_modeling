@@ -7,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 from torch import Tensor
 from torch_geometric.data import Dataset, Data
-from torch_geometric.transforms import ToUndirected
 from typing import Tuple, List, Dict
 from utils import convert_utils, file_utils, Logger
 

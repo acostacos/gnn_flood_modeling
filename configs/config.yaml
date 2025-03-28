@@ -1,4 +1,5 @@
 dataset_parameters:
+  storage_mode: 'disk' # 'memory' or 'disk'
   previous_timesteps: 2
   dataset_info_path: 'data/datasets/init/dataset_info.yaml'
 

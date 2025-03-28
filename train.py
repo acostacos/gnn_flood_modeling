@@ -1,18 +1,17 @@
-import gc
 import numpy as np
 import os
-import psutil
 import traceback
 import torch
 import yaml
 
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
-from data import FloodEventDataset
+from data import FloodEventDataset, InMemoryFloodEventDataset
 from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, SWEGNN
 from training import NodeRegressionTrainer, DualRegressionTrainer
+from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import Compose, ToUndirected
-from utils import convert_utils, Logger, file_utils
+from utils import Logger, file_utils
 from utils.loss_func_utils import get_loss_func
 
 def parse_args() -> Namespace:
@@ -55,23 +54,6 @@ def trainer_factory(model_name: str, **kwargs):
         return NodeRegressionTrainer(mode='node', **kwargs)
     return NodeRegressionTrainer(**kwargs)
 
-def print_memory_usage(logger: Logger):
-    process = psutil.Process(os.getpid())
-
-    ram_used = process.memory_info().rss  # RSS (Resident Set Size) in GB
-    logger.log(f"RAM Usage: {convert_utils.bytes_to_gb(ram_used)} GB")
-
-    num_cores = psutil.cpu_count()
-    cpu_percent = process.cpu_percent(interval=1.0)
-    logger.log(f"CPU Usage: {cpu_percent:.2f}%")
-    logger.log(f"CPU Usage Per-core ({num_cores} cores): {(cpu_percent / num_cores):.2f}%")
-
-    gpu_allocated = torch.cuda.memory_allocated()
-    gpu_cached = torch.cuda.memory_reserved()
-    logger.log(f"GPU Allocated: {convert_utils.bytes_to_gb(gpu_allocated)}GB")
-    logger.log(f"GPU Cached: {convert_utils.bytes_to_gb(gpu_cached)}GB")
-
-    gc.collect()
 
 def main():
     args = parse_args()
@@ -92,17 +74,29 @@ def main():
         # Load datasets
         dataset_parameters = config['dataset_parameters']
         dataset_info_path = dataset_parameters['dataset_info_path']
+        storage_mode = dataset_parameters['storage_mode']
+        train_config = config['training_parameters']
+
+        dataset_class = FloodEventDataset if storage_mode == 'disk' else InMemoryFloodEventDataset
+        data_loader_params = {
+            'batch_size': train_config['batch_size'],
+            'pin_memory': True,
+            'num_workers': 2,
+            'pin_memory': True,
+            'persistent_workers': True,
+        }
+        # transform = Compose([ToUndirected()])
+
         datasets = {}
-        transform = Compose([ToUndirected()])
         for event_key, event_parameters in dataset_parameters['flood_events'].items():
-            dataset = FloodEventDataset(**event_parameters,
+            dataset = dataset_class(**event_parameters,
                         dataset_info_path=dataset_info_path,
                         previous_timesteps=dataset_parameters['previous_timesteps'],
                         node_features=dataset_parameters['node_features'],
                         edge_features=dataset_parameters['edge_features'],
-                        transform=transform,
+                        # transform=transform,
                         debug=args.debug)
-            datasets[event_key] = dataset
+            datasets[event_key] = DataLoader(dataset, **data_loader_params)
         dataset_info = file_utils.read_yaml_file(dataset_info_path)
 
         # Training
@@ -113,7 +107,6 @@ def main():
         logger.log(f'Using loss function: {loss_func_key}')
 
         curr_date_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        train_config = config['training_parameters']
         base_model_params = {
             'static_node_features': dataset_info['num_static_node_features'],
             'dynamic_node_features': dataset_info['num_dynamic_node_features'],
@@ -132,7 +125,7 @@ def main():
             optimizer = torch.optim.Adam(model.parameters(), lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
             trainer = trainer_factory(args.model, train_datasets=train_datasets, val_dataset=test_dataset, model=model,
                                             loss_func=loss_func, optimizer=optimizer, num_epochs=train_config['num_epochs'],
-                                            batch_size=train_config['batch_size'], device=args.device, logger=logger)
+                                            device=args.device, logger=logger)
             trainer.train()
             trainer.validate()
             stats = trainer.get_stats()
@@ -148,9 +141,6 @@ def main():
                 torch.save(model.state_dict(), model_path)
 
                 logger.log(f'Saved model to: {model_path}')
-            
-            logger.log('Current Memory Usage: ')
-            print_memory_usage(logger)
 
         logger.log('================================================')
 

@@ -7,9 +7,8 @@ from datetime import datetime
 from pathlib import Path
 from torch import Tensor
 from torch_geometric.data import InMemoryDataset, Data
-from torch_geometric.transforms import ToUndirected
 from typing import Tuple, List, Dict
-from utils import convert_utils, file_utils, Logger
+from utils import file_utils, Logger
 
 from .dataset_debug_helper import DatasetDebugHelper
 from .feature_transform import TRANSFORM_MAP, byte_to_timestamp, to_torch_tensor_w_transpose
@@ -19,8 +18,6 @@ FEATURE_CLASS_EDGE = "edge_features"
 
 FEATURE_TYPE_STATIC = "static"
 FEATURE_TYPE_DYNAMIC = "dynamic"
-
-MAX_CACHE_SIZE_IN_GB = 12
 
 class InMemoryFloodEventDataset(InMemoryDataset):
     def __init__(self,
@@ -80,10 +77,6 @@ class InMemoryFloodEventDataset(InMemoryDataset):
 
         super().__init__(root_dir, transform, pre_transform, pre_filter, log=debug)
 
-        # In memory cache
-        self.cache = {}
-        self.estimated_cache_size = 0
-
     @property
     def raw_file_names(self):
         return [self.hdf_file, self.nodes_shp_file, self.edges_shp_file]
@@ -104,7 +97,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
             self.debug_helper.print_data_format(self.previous_timesteps)
 
         dataset = []
-        for i in range(self.len()):
+        for i in range(len(self.timesteps) - 1):
             node_features = self._get_timestep_data(i, static_nodes, dynamic_nodes)
             edge_features = self._get_timestep_data(i, static_edges, dynamic_edges)
             label_node = dynamic_nodes[i+1][:, [-1]] # Water level
@@ -126,12 +119,12 @@ class InMemoryFloodEventDataset(InMemoryDataset):
             
             dataset.append(data)
 
-        torch.save(data, self.processed_paths[0])
+        torch.save(dataset, self.processed_paths[0])
 
         self.save_dataset_info()
 
         if self.debug:
-            self.debug_helper.print_dataset_loaded(self.len(), data, self.dataset_info)
+            self.debug_helper.print_dataset_loaded((len(self.timesteps) - 1), data, self.dataset_info)
             self.debug_helper.clear()
 
     def get_dataset_info(self) -> Dict | None:

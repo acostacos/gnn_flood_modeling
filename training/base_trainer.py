@@ -1,4 +1,7 @@
+import os
+import gc
 import torch
+import psutil
 
 from torch import Tensor
 from torch.nn import Module
@@ -6,19 +9,18 @@ from torch.optim import Optimizer
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from typing import Any, Callable, List
-from utils import Logger
+from utils import Logger, convert_utils
 
 from .training_stats import TrainingStats
 
 class BaseTrainer:
     def __init__(self,
-                 train_datasets: List[str],
-                 val_dataset: str,
+                 train_datasets: List[DataLoader],
+                 val_dataset: DataLoader,
                  model: Module,
                  loss_func: Callable | Module,
                  optimizer: Optimizer,
                  num_epochs: int,
-                 batch_size: int,
                  device: str,
                  logger: Logger = None):
         self.train_datasets = train_datasets
@@ -29,18 +31,10 @@ class BaseTrainer:
         self.num_epochs = num_epochs
         self.device = device
 
-        self.data_loader_params = {
-            'batch_size': batch_size,
-            'pin_memory': True,
-            'num_workers': 2,
-            'pin_memory': True,
-            'persistent_workers': True,
-        }
-
         self.log = print
         if logger is not None and hasattr(logger, 'log'):
-            self.log = logger.log
-        self.stats = TrainingStats(logger=logger)
+            self.log = self.log
+        self.stats = TrainingStats(logger)
 
     def train(self):
         self.stats.start_train()
@@ -51,9 +45,7 @@ class BaseTrainer:
             len_training_samples = 0
             for dataset in self.train_datasets:
                 len_training_samples += len(dataset)
-                dataloader = DataLoader(dataset, **self.data_loader_params)
-
-                for batch in dataloader:
+                for batch in dataset:
                     self.optimizer.zero_grad()
 
                     batch = batch.to(self.device)
@@ -69,6 +61,9 @@ class BaseTrainer:
             self.stats.add_train_loss(epoch_loss)
             self.log(f'Epoch [{epoch + 1}/{self.num_epochs}], Training Loss: {epoch_loss:.4f}')
 
+            if epoch % 5 == 0:
+                self.print_memory_usage()
+
         self.stats.end_train()
 
     def validate(self):
@@ -77,10 +72,8 @@ class BaseTrainer:
         running_loss = 0.0
 
         len_dataset = len(self.val_dataset)
-        dataloader = DataLoader(self.val_dataset, **self.data_loader_params)
-
         with torch.no_grad():
-            for batch in dataloader:
+            for batch in self.val_dataset:
                 batch = batch.to(self.device)
                 output = self.get_prediction(batch)
 
@@ -103,3 +96,20 @@ class BaseTrainer:
 
     def get_stats(self):
         return self.stats
+    
+    def print_memory_usage(self):
+        self.log('Usage Statistics: ')
+        process = psutil.Process(os.getpid())
+
+        ram_used = process.memory_info().rss  # RSS (Resident Set Size) in GB
+        self.log(f"\tRAM Usage: {convert_utils.bytes_to_gb(ram_used)} GB")
+
+        num_cores = psutil.cpu_count()
+        self.log(f"\tNum CPU Cores:  {num_cores} cores")
+
+        gpu_allocated = torch.cuda.memory_allocated()
+        gpu_cached = torch.cuda.memory_reserved()
+        self.log(f"\tGPU Allocated: {convert_utils.bytes_to_gb(gpu_allocated)}GB")
+        self.log(f"\tGPU Cached: {convert_utils.bytes_to_gb(gpu_cached)}GB")
+
+        gc.collect()
