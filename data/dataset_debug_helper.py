@@ -1,5 +1,6 @@
 import torch
 
+from pathlib import Path
 from datetime import datetime
 from torch import Tensor
 from torch_geometric.data import Data
@@ -18,19 +19,21 @@ class DatasetDebugHelper:
         self.debug_features = {}
         self.debug_total_size = 0
 
-    def print_file_paths(self, graph_metadata_path: str, feature_metadata_path: str, hdf_filepath: str, shp_filepath: str):
+    def print_file_paths(self, graph_metadata_path: str, feature_metadata_path: str, root: str, hdf_filename: str, nodes_shp_filename: str, edges_shp_filename: str):
         self.logger('Loading data from the following files:')
         self.logger(f'\tGraph Metadata Filepath: {graph_metadata_path}')
         self.logger(f'\tFeature Metadata Filepath: {feature_metadata_path}')
-        self.logger(f'\tHEC-RAS HDF Filepath: {hdf_filepath}')
-        self.logger(f'\tNodes SHP Filepath: {shp_filepath[FEATURE_CLASS_NODE]}')
-        self.logger(f'\tEdges SHP Filepath: {shp_filepath[FEATURE_CLASS_EDGE]}')
-
-    def print_graph_properties(self, timesteps: List[datetime], edge_index: Tensor, pos: Tensor):
-        self.logger('Graph properties:')
-        self.logger(f'\tTimesteps: {len(timesteps)}')
+        self.logger(f'\tHEC-RAS HDF Filename: {Path(root) / hdf_filename}')
+        self.logger(f'\tNodes SHP Filepath: {Path(root) / nodes_shp_filename}')
+        self.logger(f'\tEdges SHP Filepath: {Path(root) / edges_shp_filename}')
+    
+    def print_timesteps_info(self, timesteps: List[datetime]):
+        self.logger(f'Timesteps: {len(timesteps)}')
         if len(timesteps) > 1:
-            self.logger(f'\tTimestep delta: {timesteps[1] - timesteps[0]}')
+            self.logger(f'Timestep delta: {timesteps[1] - timesteps[0]}')
+
+    def print_graph_properties(self, edge_index: Tensor, pos: Tensor):
+        self.logger('Graph properties:')
         self.logger(f'\tEdge Index: {edge_index.shape}')
         self.logger(f'\tPos: {pos.shape}')
 
@@ -88,19 +91,18 @@ class DatasetDebugHelper:
         for tensor in tensors:
             self.debug_total_size += (tensor.element_size() * tensor.nelement())
 
-    def print_dataset_loaded(self, dataset: List[Data], dataset_info: Dict):
+    def print_dataset_loaded(self, dataset_len: int, sample: Data, dataset_info: Dict):
         self.logger('Succesfully loaded dateset.')
         self.logger(f'Total size of dataset: {self.debug_total_size} bytes')
-        self.logger(f'Number of data points: {len(dataset)}')
-        self.logger(f'Sample data point: {dataset[0]}')
+        self.logger(f'Number of data points: {dataset_len}')
+        self.logger(f'Sample data point: {sample}')
         self.logger('Dataset Info:')
         for key, value in dataset_info.items():
             self.logger(f'\t{key}: {value}')
 
-    def print_dataset_saved(self, dataset_path: str, dataset_info_path: str):
-        self.logger(f'Saved dataset to {dataset_path}')
+    def print_dataset_info_saved(self, dataset_info_path: str):
         self.logger(f'Saved dataset info to {dataset_info_path}')
-    
+
     def clear(self):
         self.debug_features = {}
         self.debug_total_size = 0
