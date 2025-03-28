@@ -1,6 +1,43 @@
 dataset_parameters:
-  data_dir_path: 'data/datasets/hr/processed'
-  dataset_info_filename: 'dataset_info.yaml'
+  previous_timesteps: 2
+  dataset_info_path: 'data/datasets/lr/dataset_info.yaml'
+
+  flood_events:
+    hrp03:
+      root_dir: 'data/datasets/lr/hrp03'
+      hec_ras_hdf_file: 'M01.p03.hdf'
+      nodes_shp_file: 'cell_centers.shp'
+      edges_shp_file: 'links.shp'
+    hrp06:
+      root_dir: 'data/datasets/lr/hrp06'
+      hec_ras_hdf_file: 'M01.p06.hdf'
+      nodes_shp_file: 'cell_centers.shp'
+      edges_shp_file: 'links.shp'
+    hrp07:
+      root_dir: 'data/datasets/lr/hrp07'
+      hec_ras_hdf_file: 'M01.p07.hdf'
+      nodes_shp_file: 'cell_centers.shp'
+      edges_shp_file: 'links.shp'
+    hrp09:
+      root_dir: 'data/datasets/lr/hrp09'
+      hec_ras_hdf_file: 'M01.p09.hdf'
+      nodes_shp_file: 'cell_centers.shp'
+      edges_shp_file: 'links.shp'
+
+  node_features:
+    area          : True    # Cell area per node
+    roughness     : True    # Manning's roughness
+    elevation     : True    # Node elevation
+    rainfall      : True    # Rainfall added per interval at each node
+    water_level   : True    # Water level at each node
+
+  edge_features:
+    direction_x   : True    # Link direction along x-axis
+    direction_y   : True    # Link direction along y-axis
+    face_length   : True    # Link face length
+    length        : True    # Link length
+    slope         : True    # Link slope
+    velocity      : True    # Water velocity at each link
 
 training_parameters:
   num_epochs      : 10            # Number of epochs

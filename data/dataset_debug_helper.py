@@ -19,10 +19,11 @@ class DatasetDebugHelper:
         self.debug_features = {}
         self.debug_total_size = 0
 
-    def print_file_paths(self, graph_metadata_path: str, feature_metadata_path: str, root: str, hdf_filename: str, nodes_shp_filename: str, edges_shp_filename: str):
+    def print_file_paths(self, graph_metadata_path: str, feature_metadata_path: str,  dataset_info_path: str, root: str, hdf_filename: str, nodes_shp_filename: str, edges_shp_filename: str):
         self.logger('Loading data from the following files:')
         self.logger(f'\tGraph Metadata Filepath: {graph_metadata_path}')
         self.logger(f'\tFeature Metadata Filepath: {feature_metadata_path}')
+        self.logger(f'\tDataset Info Filepath: {dataset_info_path}')
         self.logger(f'\tHEC-RAS HDF Filename: {Path(root) / hdf_filename}')
         self.logger(f'\tNodes SHP Filepath: {Path(root) / nodes_shp_filename}')
         self.logger(f'\tEdges SHP Filepath: {Path(root) / edges_shp_filename}')

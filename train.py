@@ -1,10 +1,10 @@
 import numpy as np
-import os
 import traceback
 import torch
 import yaml
 
 from argparse import ArgumentParser, Namespace
+from data import FloodEventDataset
 from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, SWEGNN
 from training import NodeRegressionTrainer, DualRegressionTrainer
 from utils import Logger, file_utils
@@ -12,7 +12,7 @@ from utils.loss_func_utils import get_loss_func
 
 def parse_args() -> Namespace:
     parser = ArgumentParser(description='')
-    parser.add_argument('--config_path', type=str, default='configs/train_config.yaml', help='Path to training config file')
+    parser.add_argument('--config_path', type=str, default='configs/config.yaml', help='Path to training config file')
     parser.add_argument("--model", type=str, default='NodeEdgeGNN', help='Model to use for training')
     parser.add_argument("--debug", type=bool, default=False, help='Add debug messages to output')
     parser.add_argument("--seed", type=int, default=42, help='Seed for random number generators')
@@ -61,16 +61,27 @@ def main():
         current_device = torch.cuda.get_device_name(args.device) if args.device != 'cpu' else 'CPU'
         logger.log(f'Using device: {current_device}')
 
+        # Load datasets
         dataset_parameters = config['dataset_parameters']
-        data_dir_path = dataset_parameters['data_dir_path']
-        dataset_info_filename = dataset_parameters['dataset_info_filename']
+        dataset_info_path = dataset_parameters['dataset_info_path']
+        datasets = {}
+        for event_key, event_parameters in dataset_parameters['flood_events'].items():
+            dataset = FloodEventDataset(**event_parameters,
+                        dataset_info_path=dataset_info_path,
+                        previous_timesteps=dataset_parameters['previous_timesteps'],
+                        node_features=dataset_parameters['node_features'],
+                        edge_features=dataset_parameters['edge_features'],
+                        debug=args.debug)
+            datasets[event_key] = dataset
+        dataset_info = file_utils.read_yaml_file(dataset_info_path)
 
-        dataset_info_path = os.path.join(data_dir_path, dataset_info_filename)
-        if os.path.exists(data_dir_path) and os.path.exists(dataset_info_filename):
-            raise Exception('Dataset info file not found. Run preprocess.py before training.')
+        # Training
+        loss_func_key = get_loss_func_key(args.model)
+        logger.log(f'Using model: {args.model}')
+        logger.log(f'Using loss function: {loss_func_key}')
 
-        dataset_info_yaml = file_utils.read_yaml_file(dataset_info_path)
-        dataset_info = dataset_info_yaml['dataset_info']
+        train_config = config['training_parameters']
+        model_params = config['model_parameters'][args.model]
         base_model_params = {
             'static_node_features': dataset_info['num_static_node_features'],
             'dynamic_node_features': dataset_info['num_dynamic_node_features'],
@@ -79,25 +90,10 @@ def main():
             'previous_timesteps': dataset_info['previous_timesteps'],
             'device': args.device,
         }
-
-        loss_func_key = get_loss_func_key(args.model)
-        logger.log(f'Using model: {args.model}')
-        logger.log(f'Using loss function: {loss_func_key}')
-
-        model_params = config['model_parameters'][args.model]
-        train_config = config['training_parameters']
-        # TODO: Temporary implementation. Fix this in the future.
-        avail_files = [k for k in dataset_info_yaml.keys() if k != 'dataset_info']
-        datasets = []
-        for file in avail_files:
-            dataset_path = os.path.join(data_dir_path, f'{file}.pkl')
-            dataset = file_utils.read_pickle_file(dataset_path)
-            datasets.append(dataset)
-
-        for i, dataset in enumerate(datasets):
-            train_datasets = [d for j, d in enumerate(datasets) if j != i]
+        for event_key, dataset in datasets.items():
+            train_datasets = [d for k, d in datasets.items() if k != event_key]
             test_dataset = dataset
-            logger.log(f"Training with {', '.join([f for j, f in enumerate(avail_files) if j != i])}. Testing on {avail_files[i]}.")
+            logger.log(f"Training with {', '.join([k for k in datasets.keys() if k != event_key])}. Testing on {event_key}.")
             model = model_factory(args.model, **model_params, **base_model_params)
             loss_func = get_loss_func(loss_func_key)
 

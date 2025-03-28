@@ -1,3 +1,4 @@
+import os
 import torch
 import numpy as np
 
@@ -6,7 +7,7 @@ from pathlib import Path
 from torch import Tensor
 from torch_geometric.data import Dataset, Data
 from torch_geometric.transforms import ToUndirected
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 from utils import file_utils, Logger
 
 from .dataset_debug_helper import DatasetDebugHelper
@@ -20,7 +21,8 @@ FEATURE_TYPE_DYNAMIC = "dynamic"
 
 class FloodEventDataset(Dataset):
     def __init__(self,
-                 root: str,
+                 dataset_info_path: str,
+                 root_dir: str,
                  hec_ras_hdf_file: str,
                  nodes_shp_file: str,
                  edges_shp_file: str,
@@ -45,23 +47,25 @@ class FloodEventDataset(Dataset):
         current_dir = Path(__file__).parent
         self.graph_metadata_path = current_dir / 'graph_metadata.yaml'
         self.feature_metadata_path = current_dir / 'feature_metadata.yaml'
+        self.dataset_info_path = dataset_info_path
         self.hdf_file = hec_ras_hdf_file
         self.nodes_shp_file = nodes_shp_file
         self.edges_shp_file = edges_shp_file
 
         if self.debug:
-            self.debug_helper.print_file_paths(self.graph_metadata_path, self.feature_metadata_path, root, self.hdf_file, self.nodes_shp_file, self.edges_shp_file)
+            self.debug_helper.print_file_paths(self.graph_metadata_path, self.feature_metadata_path, self.dataset_info_path, root_dir, self.hdf_file, self.nodes_shp_file, self.edges_shp_file)
 
         # Initialize dataset variables
         self.previous_timesteps = previous_timesteps
-        self.timesteps = self._get_event_timesteps(root)
+        self.timesteps = self._get_event_timesteps(root_dir)
         self.dataset_info = {
+            'node_features': [],
+            'edge_features': [],
             'num_static_node_features': 0,
             'num_dynamic_node_features': 0,
             'num_static_edge_features': 0,
             'num_dynamic_edge_features': 0,
             'previous_timesteps': previous_timesteps,
-            'num_data_points': self.len(),
         }
 
         # Set features to load
@@ -69,8 +73,9 @@ class FloodEventDataset(Dataset):
         included_features[FEATURE_CLASS_NODE] = self._get_feature_list(node_features)
         included_features[FEATURE_CLASS_EDGE] = self._get_feature_list(edge_features)
         self.feature_metadata = self._get_feature_metadata(included_features)
+        self._enforce_dataset_consistency()
 
-        super().__init__(root, transform, pre_transform, pre_filter, log=debug)
+        super().__init__(root_dir, transform, pre_transform, pre_filter, log=debug)
 
     @property
     def raw_file_names(self):
@@ -78,9 +83,9 @@ class FloodEventDataset(Dataset):
 
     @property
     def processed_file_names(self):
-        data_filenames = [f'data_{i}.pt' for i in range(self.len())]
-        return ['dataset_info.yaml', *data_filenames]
-    
+        data_filenames = [f'data_{i+1}.pt' for i in range(self.len())]
+        return [*data_filenames]
+
     def download(self):
         pass
 
@@ -115,27 +120,39 @@ class FloodEventDataset(Dataset):
             # TODO: MOVE THIS OUTSIDE
             data = ToUndirected()(data) # Transform to undirected graph
 
-            torch.save(data, self.processed_paths[i+1])
+            torch.save(data, self.processed_paths[i])
 
-        self.dataset_info['num_data_points'] = self.len()
         self.save_dataset_info()
+
         if self.debug:
             self.debug_helper.print_dataset_loaded(self.len(), data, self.dataset_info)
             self.debug_helper.clear()
 
     def len(self):
         return len(self.timesteps) - 1 # Last time step is only used as a label
-    
+
     def get(self, idx):
-        data = torch.load(self.processed_paths[idx+1])
+        data = torch.load(self.processed_paths[idx])
         return data
 
+    def get_dataset_info(self) -> Dict | None:
+        if not os.path.exists(self.dataset_info_path):
+            return None
+
+        dataset_info = file_utils.read_yaml_file(self.dataset_info_path)
+        return dataset_info
+
     def save_dataset_info(self):
-        dataset_info_path = self.processed_paths[0]
-        file_utils.save_to_yaml_file(dataset_info_path, self.dataset_info)
+        if os.path.exists(self.dataset_info_path):
+            dataset_info = file_utils.read_yaml_file(self.dataset_info_path)
+            if self.root not in dataset_info['included_datasets']:
+                dataset_info['included_datasets'].append(self.root)
+        else:
+            dataset_info = {**self.dataset_info, 'included_datasets': [self.root]}
+        file_utils.save_to_yaml_file(self.dataset_info_path, dataset_info)
 
         if self.debug:
-            self.debug_helper.print_dataset_info_saved(dataset_info_path)
+            self.debug_helper.print_dataset_info_saved(self.dataset_info_path)
 
 
     # =========== Helper Methods ===========
@@ -144,7 +161,7 @@ class FloodEventDataset(Dataset):
         graph_metadata = file_utils.read_yaml_file(self.graph_metadata_path)
         timesteps_kwargs = graph_metadata['properties']['timesteps']
 
-        hdf_filepath = Path(root) / self.hdf_file
+        hdf_filepath = Path(root) / 'raw' / self.hdf_file
         timesteps = file_utils.read_hdf_file_as_numpy(filepath=hdf_filepath, property_path=timesteps_kwargs['path'])
         timesteps = byte_to_timestamp(timesteps)
 
@@ -169,10 +186,22 @@ class FloodEventDataset(Dataset):
                 if name in included_features[feature_class]:
                     local_metadata |= {name: data}
                     self.dataset_info[f"num_{data['type']}_{feature_class}"] += 1
+                    self.dataset_info[feature_class].append(name)
 
             feature_metadata[feature_class] = local_metadata
 
         return feature_metadata
+    
+    def _enforce_dataset_consistency(self):
+        dataset_info = self.get_dataset_info()
+        if dataset_info is None:
+            return
+        
+        if (set(dataset_info[FEATURE_CLASS_NODE]) != set(self.dataset_info[FEATURE_CLASS_NODE])
+            or set(dataset_info[FEATURE_CLASS_EDGE]) != set(self.dataset_info[FEATURE_CLASS_EDGE])
+            or dataset_info['previous_timesteps'] != self.dataset_info['previous_timesteps']):
+            raise ValueError('Dataset features are inconsistent with previously loaded datasets.')
+
 
     def _get_graph_properties(self) -> Tuple[List[datetime], torch.Tensor, torch.Tensor]:
         graph_metadata = file_utils.read_yaml_file(self.graph_metadata_path)
