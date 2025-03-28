@@ -86,12 +86,18 @@ def main():
 
         model_params = config['model_parameters'][args.model]
         train_config = config['training_parameters']
+        # TODO: Temporary implementation. Fix this in the future.
         avail_files = [k for k in dataset_info_yaml.keys() if k != 'dataset_info']
+        datasets = []
         for file in avail_files:
-            train_datasets = [os.path.join(data_dir_path, f'{f}.pkl') for f in avail_files if f != file]
-            test_dataset = os.path.join(data_dir_path, f'{file}.pkl')
-            logger.log(f"Training with {', '.join([f for f in avail_files if f != file])}. Testing on {file}.")
+            dataset_path = os.path.join(data_dir_path, f'{file}.pkl')
+            dataset = file_utils.read_pickle_file(dataset_path)
+            datasets.append(dataset)
 
+        for i, dataset in enumerate(datasets):
+            train_datasets = [d for j, d in enumerate(datasets) if j != i]
+            test_dataset = dataset
+            logger.log(f"Training with {', '.join([f for j, f in enumerate(avail_files) if j != i])}. Testing on {avail_files[i]}.")
             model = model_factory(args.model, **model_params, **base_model_params)
             loss_func = get_loss_func(loss_func_key)
 

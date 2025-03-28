@@ -3,6 +3,7 @@
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --partition=gpu-long
 #SBATCH --gpus=a100-40:1
+#SBATCH --mem-per-cpu=64000
 
 nvidia-smi
 

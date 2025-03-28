@@ -43,10 +43,8 @@ class BaseTrainer:
 
             len_training_samples = 0
             for dataset in self.train_datasets:
-                # TODO: Temporary implementation. Fix this in the future.
-                loaded_dataset = file_utils.read_pickle_file(dataset)
-                len_training_samples += len(loaded_dataset)
-                dataloader = DataLoader(loaded_dataset, batch_size=self.batch_size)
+                len_training_samples += len(dataset)
+                dataloader = DataLoader(dataset, batch_size=self.batch_size)
 
                 for batch in dataloader:
                     self.optimizer.zero_grad()
@@ -71,10 +69,8 @@ class BaseTrainer:
         self.model.eval()
         running_loss = 0.0
 
-        # TODO: Temporary implementation. Fix this in the future.
-        loaded_dataset = file_utils.read_pickle_file(self.val_dataset)
-        len_dataset = len(loaded_dataset)
-        dataloader = DataLoader(loaded_dataset, batch_size=self.batch_size)
+        len_dataset = len(self.val_dataset)
+        dataloader = DataLoader(self.val_dataset, batch_size=self.batch_size)
 
         with torch.no_grad():
             for batch in dataloader:
