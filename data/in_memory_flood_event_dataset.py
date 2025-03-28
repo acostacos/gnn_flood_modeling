@@ -6,7 +6,7 @@ import pickle
 from datetime import datetime
 from pathlib import Path
 from torch import Tensor
-from torch_geometric.data import Dataset, Data
+from torch_geometric.data import InMemoryDataset, Data
 from torch_geometric.transforms import ToUndirected
 from typing import Tuple, List, Dict
 from utils import convert_utils, file_utils, Logger
@@ -22,7 +22,7 @@ FEATURE_TYPE_DYNAMIC = "dynamic"
 
 MAX_CACHE_SIZE_IN_GB = 12
 
-class FloodEventDataset(Dataset):
+class InMemoryFloodEventDataset(InMemoryDataset):
     def __init__(self,
                  dataset_info_path: str,
                  root_dir: str,
@@ -90,8 +90,7 @@ class FloodEventDataset(Dataset):
 
     @property
     def processed_file_names(self):
-        data_filenames = [f'data_{i+1}.pt' for i in range(self.len())]
-        return [*data_filenames]
+        return ['complete_data.pt']
 
     def download(self):
         pass
@@ -104,6 +103,7 @@ class FloodEventDataset(Dataset):
         if self.debug:
             self.debug_helper.print_data_format(self.previous_timesteps)
 
+        dataset = []
         for i in range(self.len()):
             node_features = self._get_timestep_data(i, static_nodes, dynamic_nodes)
             edge_features = self._get_timestep_data(i, static_edges, dynamic_edges)
@@ -123,32 +123,16 @@ class FloodEventDataset(Dataset):
 
             if self.pre_transform is not None:
                 data = self.pre_transform(data)
+            
+            dataset.append(data)
 
-            torch.save(data, self.processed_paths[i])
+        torch.save(data, self.processed_paths[0])
 
         self.save_dataset_info()
 
         if self.debug:
             self.debug_helper.print_dataset_loaded(self.len(), data, self.dataset_info)
             self.debug_helper.clear()
-
-    def len(self):
-        return len(self.timesteps) - 1 # Last time step is only used as a label
-
-    def get(self, idx):
-        filename = self.processed_paths[idx]
-
-        if filename in self.cache:
-            data = self.cache[filename]
-            return data
-
-        data = torch.load(filename, pickle_module=pickle)
-
-        if self.estimated_cache_size < convert_utils.gb_to_bytes(MAX_CACHE_SIZE_IN_GB):
-            self.cache[filename] = data
-            self.estimated_cache_size += os.path.getsize(filename)
-
-        return data
 
     def get_dataset_info(self) -> Dict | None:
         if not os.path.exists(self.dataset_info_path):
