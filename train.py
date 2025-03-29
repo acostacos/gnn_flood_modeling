@@ -14,6 +14,8 @@ from torch_geometric.transforms import Compose, ToUndirected
 from utils import Logger, file_utils
 from utils.loss_func_utils import get_loss_func
 
+torch.serialization.add_safe_globals([datetime])
+
 def parse_args() -> Namespace:
     parser = ArgumentParser(description='')
     parser.add_argument('--config_path', type=str, default='configs/config.yaml', help='Path to training config file')
@@ -85,7 +87,7 @@ def main():
             'pin_memory': True,
             'persistent_workers': True,
         }
-        # transform = Compose([ToUndirected()])
+        transform = Compose([ToUndirected()])
 
         datasets = {}
         for event_key, event_parameters in dataset_parameters['flood_events'].items():
@@ -94,7 +96,7 @@ def main():
                         previous_timesteps=dataset_parameters['previous_timesteps'],
                         node_features=dataset_parameters['node_features'],
                         edge_features=dataset_parameters['edge_features'],
-                        # transform=transform,
+                        transform=transform,
                         debug=args.debug)
             datasets[event_key] = DataLoader(dataset, **data_loader_params)
         dataset_info = file_utils.read_yaml_file(dataset_info_path)

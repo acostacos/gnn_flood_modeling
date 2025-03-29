@@ -96,7 +96,7 @@ class FloodEventDataset(Dataset):
         pass
 
     def process(self):
-        edge_index, pos = self._get_graph_properties()
+        edge_index  = self._get_graph_properties()
         static_nodes, dynamic_nodes = self._get_features(FEATURE_CLASS_NODE)
         static_edges, dynamic_edges = self._get_features(FEATURE_CLASS_EDGE)
 
@@ -115,7 +115,7 @@ class FloodEventDataset(Dataset):
                 self.debug_helper.compute_total_size([node_features, edge_index, edge_features, label_node, label_edges])
 
             data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_features,
-                        y=label_node, y_edge=label_edges, pos=pos, timestep=self.timesteps[i])
+                        y=label_node, y_edge=label_edges, timestep=self.timesteps[i])
 
             if self.pre_filter is not None and not self.pre_filter(data):
                 continue
@@ -216,20 +216,21 @@ class FloodEventDataset(Dataset):
             or dataset_info['previous_timesteps'] != self.dataset_info['previous_timesteps']):
             raise ValueError(f'Dataset features are inconsistent with previously loaded datasets. See {self.dataset_info_path}')
 
-    def _get_graph_properties(self) -> Tuple[List[datetime], torch.Tensor, torch.Tensor]:
+    def _get_graph_properties(self) -> Tuple[torch.Tensor, torch.Tensor]:
         graph_metadata = file_utils.read_yaml_file(self.graph_metadata_path)
         property_metadata = graph_metadata['properties']
 
         edge_index = self._load_feature_data(feature_class=FEATURE_CLASS_EDGE, **property_metadata['edge_index'])
         edge_index = to_torch_tensor_w_transpose(edge_index)
 
-        pos = self._load_feature_data(feature_class=FEATURE_CLASS_NODE, **property_metadata['pos'])
-        pos = to_torch_tensor_w_transpose(pos)
+        # See if this is still needed
+        # pos = self._load_feature_data(feature_class=FEATURE_CLASS_NODE, **property_metadata['pos'])
+        # pos = to_torch_tensor_w_transpose(pos)
 
         if self.debug:
-            self.debug_helper.print_graph_properties(edge_index, pos)
+            self.debug_helper.print_graph_properties(edge_index)
 
-        return edge_index, pos
+        return edge_index
     
     def _get_features(self, feature_class: str) -> Tuple[torch.Tensor, torch.Tensor]:
         features = { FEATURE_TYPE_STATIC: [], FEATURE_TYPE_DYNAMIC: [] }

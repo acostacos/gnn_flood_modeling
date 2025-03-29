@@ -1,5 +1,12 @@
+from data import FloodEventDataset
 
 def main():
+    MODEL_FILE = ''
+    CELL_SHP_FILE = 'data/datasets/lr/lrp01/LR_Mesh_200m.shp'
+    LINK_SHP_FILE = 'data/datasets/lr/lrp01/links.shp'
+
+    dataset = ''
+
     # FOR NODEEDGEGNN
     # Load FloodEventDataset
     # Get single datapoint in test dataset

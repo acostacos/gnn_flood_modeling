@@ -1,5 +1,5 @@
 dataset_parameters:
-  storage_mode: 'disk' # 'memory' or 'disk'
+  storage_mode: 'memory' # 'memory' or 'disk'
   previous_timesteps: 2
   dataset_info_path: 'data/datasets/init/dataset_info.yaml'
 
@@ -42,7 +42,7 @@ dataset_parameters:
 
 training_parameters:
   num_epochs      : 10            # Number of epochs
-  batch_size      : 64            # Batch size
+  batch_size      : 1            # Batch size
   learning_rate   : 0.007         # learning rate
   weight_decay    : 0             # weight decay
 
