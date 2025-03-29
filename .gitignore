@@ -175,4 +175,4 @@ cython_debug/
 # Data
 data/datasets
 logs/
-models/saved_models
+saved_models/
