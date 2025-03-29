@@ -20,6 +20,7 @@ def parse_args() -> Namespace:
     parser = ArgumentParser(description='')
     parser.add_argument('--config_path', type=str, default='configs/config.yaml', help='Path to training config file')
     parser.add_argument("--model", type=str, default='NodeEdgeGNN_Dual', help='Model to use for training')
+    parser.add_argument('--test_datasets', nargs='+', type=str, default=['all'], help='List of datasets to test with. The rest will only be used for testing.')
     parser.add_argument("--debug", type=bool, default=False, help='Add debug messages to output')
     parser.add_argument("--seed", type=int, default=42, help='Seed for random number generators')
     parser.add_argument("--device", type=str, default=('cuda' if torch.cuda.is_available() else 'cpu'), help='Device to run on')
@@ -117,9 +118,15 @@ def main():
             'previous_timesteps': dataset_info['previous_timesteps'],
             'device': args.device,
         }
-        for event_key, dataset in datasets.items():
+
+        test_dataset_keys = args.test_datasets if args.test_datasets != ['all'] else list(datasets.keys())
+        for event_key in test_dataset_keys:
+            if event_key not in datasets:
+                raise ValueError(f'Test dataset {event_key} not found in datasets. Check your config file.')
+
+        for event_key in test_dataset_keys:
             train_datasets = [d for k, d in datasets.items() if k != event_key]
-            test_dataset = dataset
+            test_dataset = datasets[event_key]
             logger.log(f"Training with {', '.join([k for k in datasets.keys() if k != event_key])}. Testing on {event_key}.")
             model = model_factory(args.model, **model_params, **base_model_params)
             loss_func = get_loss_func(loss_func_key)
