@@ -19,7 +19,7 @@ FEATURE_CLASS_EDGE = "edge_features"
 FEATURE_TYPE_STATIC = "static"
 FEATURE_TYPE_DYNAMIC = "dynamic"
 
-MAX_CACHE_SIZE_IN_GB = 12
+MAX_CACHE_SIZE_IN_GB = 20
 
 class FloodEventDataset(Dataset):
     def __init__(self,
