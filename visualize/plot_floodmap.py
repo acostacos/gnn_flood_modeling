@@ -4,6 +4,7 @@ sys.path.append('..')
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 
 from data import FloodEventDataset, InMemoryFloodEventDataset
@@ -17,8 +18,6 @@ CELL_SHP_FILENAME = 'cell_centers.shp'
 LINK_SHP_FILENAME = 'links.shp'
 MODEL = 'NodeEdgeGNN'
 SAVED_MODEL_PATH = '../saved_models/nodeedge_dual/NodeEdgeGNN_Dual_lrp01_2025-03-29_15-06-44.pt'
-EDGE_PLOT_TITLE = 'Flood Mapping for Low Resolution Mesh Edges'
-EDGE_PLOT_PATH = 'node_lr_edge_plot.png'
 
 def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
     if model_name == 'NodeEdgeGNN' or model_name == 'NodeEdgeGNN_Dual':
@@ -38,7 +37,7 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
     raise ValueError(f'Invalid model name: {model_name}')
 
 
-def plot_node_flood_map(node_pred, node_ground_truth):
+def plot_node_flood_map(node_pred, node_ground_truth, timestep):
     cell_shp_path = f'../data/datasets/{MESH}/{EVENT_NAME}/raw/{CELL_SHP_FILENAME}'
     node_df = gpd.read_file(cell_shp_path)
     value_column = 'water_level'
@@ -93,12 +92,71 @@ def plot_node_flood_map(node_pred, node_ground_truth):
     ax[2].set_title('Node Difference')
     ax[2].set_axis_off()
 
+    fig.suptitle(f"Water Level Heatmap for Mesh Nodes at timestep {timestep}", fontsize=24)
     fig.tight_layout()
     fig.savefig("plots/lr_node_flood_map.jpg", format='jpg', dpi=300, bbox_inches='tight')
 
 
-def visualize_edge_flood_map(edge_pred, edge_ground_truth):
-    pass
+def plot_edge_flood_map(edge_pred, edge_ground_truth, timestep):
+    # TODO: See if this is correct
+    edge_pred = edge_pred[:edge_pred.shape[0] // 2]
+    edge_ground_truth = edge_ground_truth[:edge_ground_truth.shape[0] // 2]
+
+    link_shp_path = f'../data/datasets/{MESH}/{EVENT_NAME}/raw/{LINK_SHP_FILENAME}'
+    edge_df = gpd.read_file(link_shp_path)
+    value_column = 'velocity'
+
+    fig, ax = plt.subplots(figsize=(20,10), ncols=3)
+
+    edge_pred_min, edge_pred_max = edge_pred.min(), edge_ground_truth.max()
+    edge_gt_min, edge_gt_max = edge_ground_truth.min(), edge_ground_truth.max()
+    print(f'Edge Prediction: min = {edge_pred_min}, max = {edge_pred_max}')
+    print(f'Edge Ground Truth: min = {edge_gt_min}, max = {edge_gt_max}')
+    norm = plt.Normalize(vmin=min(edge_pred_min, edge_gt_min), vmax=max(edge_pred_max, edge_gt_max))
+    cmap = plt.get_cmap('RdYlGn_r') 
+    shared_plot_kwargs = {
+        'cmap': cmap,
+        'norm': norm,
+        'column': value_column,
+        'linewidth': 0.5,
+        'legend': True,
+        'legend_kwds': {'label': "Velocity", 'orientation': "vertical"},
+    }
+
+    # Prediction
+    np_edge_pred = edge_pred.cpu().numpy()
+    pred_edge_df = edge_df.copy()
+    pred_edge_df[value_column] = np_edge_pred
+
+    pred_edge_df.plot(ax=ax[0], **shared_plot_kwargs)
+    ax[0].set_title('Edge Prediction')
+    ax[0].set_axis_off()
+
+    # Ground Truth
+    np_edge_ground_truth = edge_ground_truth.cpu().numpy()
+    gt_edge_df = edge_df.copy()
+    gt_edge_df[value_column] = np_edge_ground_truth
+    gt_edge_df.plot(ax=ax[1], **shared_plot_kwargs)
+    ax[1].set_title('Edge Ground Truth')
+    ax[1].set_axis_off()
+
+    # Difference
+    edge_diff = np.abs(np_edge_pred - np_edge_ground_truth)
+    print(f'Edge Difference: min = {edge_diff.min()}, max = {edge_diff.max()}')
+    diff_edge_df = edge_df.copy()
+    diff_edge_df[value_column] = edge_diff
+    diff_edge_df.plot(ax=ax[2],
+                      cmap='seismic',
+                      column=value_column,
+                      linewidth=0.5,
+                      legend=True,
+                      legend_kwds={'label': "Difference", 'orientation': "vertical"})
+    ax[2].set_title('Edge Difference')
+    ax[2].set_axis_off()
+
+    fig.suptitle(f"Velocity Heatmap for Mesh Edges at timestep {timestep}", fontsize=24)
+    fig.tight_layout()
+    fig.savefig("plots/lr_edge_flood_map.jpg", format='jpg', dpi=300, bbox_inches='tight')
 
 
 def main():
@@ -140,7 +198,8 @@ def main():
     model.load_state_dict(torch.load(SAVED_MODEL_PATH, weights_only=True))
 
     # Perform inference for 1 timestep
-    idx = len(dataset) - 100
+    # idx = len(dataset) - 100
+    idx = 50
     timestep_data = dataset[idx]
 
     model.eval()
@@ -150,27 +209,10 @@ def main():
     
     node_ground_truth = timestep_data.y
     edge_ground_truth = timestep_data.y_edge
+    timestep = timestep_data.timestep
     
-    link_shp_path = f'../data/datasets/{MESH}/{EVENT_NAME}/{LINK_SHP_FILENAME}'
-
-    plot_node_flood_map(node_pred, node_ground_truth)
-
-
-    # # Edge Visualization
-    # cell_shp_path = f'../data/datasets/{MESH}/{EVENT_NAME}/raw/{CELL_SHP_FILENAME}'
-    # node_df = gpd.read_file(cell_shp_path)
-    # value_column = 'water_level'
-    # node_df[value_column] = node_pred.cpu().numpy()
-
-    # norm = plt.Normalize(vmin=node_pred_min, vmax=node_pred_max)
-    # cmap = plt.get_cmap('RdYlGn_r') 
-    # node_df.plot(column=value_column, cmap=cmap, norm=norm, 
-    #      edgecolor='black', linewidth=0.3, legend=True,
-    #      legend_kwds={'label': "Water Level", 'orientation': "vertical"})
-
-    # plt.title(NODE_PLOT_TITLE)
-    # plt.show()
-    # plt.savefig(NODE_PLOT_PATH)
+    plot_node_flood_map(node_pred, node_ground_truth, timestep)
+    plot_edge_flood_map(edge_pred, edge_ground_truth, timestep)
 
 if __name__ == '__main__':
     main()
