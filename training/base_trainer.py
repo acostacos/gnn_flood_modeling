@@ -61,8 +61,8 @@ class BaseTrainer:
             self.stats.add_train_loss(epoch_loss)
             self.log(f'Epoch [{epoch + 1}/{self.num_epochs}], Training Loss: {epoch_loss:.4f}')
 
-            if epoch % 5 == 0:
-                self.print_memory_usage()
+            if epoch > 0 and epoch % 5 == 0:
+                self.print_memory_usage(epoch)
 
         self.stats.end_train()
 
@@ -97,11 +97,11 @@ class BaseTrainer:
     def get_stats(self):
         return self.stats
     
-    def print_memory_usage(self):
-        self.log('Usage Statistics: ')
+    def print_memory_usage(self, epoch: int):
+        self.log(f'Usage Statistics (epoch {epoch+1}): ')
         process = psutil.Process(os.getpid())
 
-        ram_used = process.memory_info().rss  # RSS (Resident Set Size) in GB
+        ram_used = process.memory_info().rss
         self.log(f"\tRAM Usage: {convert_utils.bytes_to_gb(ram_used)} GB")
 
         num_cores = psutil.cpu_count()

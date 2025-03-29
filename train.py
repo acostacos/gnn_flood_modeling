@@ -51,7 +51,7 @@ def trainer_factory(model_name: str, **kwargs):
     if model_name == 'NodeEdgeGNN_Dual':
         return DualRegressionTrainer(mode='dual', **kwargs)
     if model_name == 'NodeEdgeGNN':
-        return NodeRegressionTrainer(mode='node', **kwargs)
+        return DualRegressionTrainer(mode='node', **kwargs)
     return NodeRegressionTrainer(**kwargs)
 
 
