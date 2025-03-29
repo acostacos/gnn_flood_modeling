@@ -1,5 +1,5 @@
 dataset_parameters:
-  storage_mode: 'disk' # 'memory' or 'disk'
+  storage_mode: 'memory' # 'memory' or 'disk'
   previous_timesteps: 2
   dataset_info_path: 'data/datasets/hr/dataset_info.yaml'
 
