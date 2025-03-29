@@ -12,8 +12,13 @@ from torch_geometric.transforms import Compose, ToUndirected
 from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, SWEGNN
 from utils import file_utils
 
+TIMESTEP_IDX = 1
+# TIMESTEP_IDX = 48 # Early 
+# TIMESTEP_IDX = 384 # Late
+NORMALIZE_WITH_ENTIRE_DATASET = True
 MESH = 'lr'
 EVENT_NAME = 'lrp01'
+HEC_RAS_FILENAME = 'M01.p01.hdf'
 CELL_SHP_FILENAME = 'cell_centers.shp'
 LINK_SHP_FILENAME = 'links.shp'
 MODEL = 'NodeEdgeGNN'
@@ -38,17 +43,30 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
 
 
 def plot_node_flood_map(node_pred, node_ground_truth, timestep):
+    # Get range of values for water level
+    if NORMALIZE_WITH_ENTIRE_DATASET:
+        feature_metadata_path = f"../data/feature_metadata.yaml"
+        feature_metadata = file_utils.read_yaml_file(feature_metadata_path)
+        hec_ras_path = f'../data/datasets/{MESH}/{EVENT_NAME}/raw/{HEC_RAS_FILENAME}'
+
+        water_level_metadata = feature_metadata['node_features']['water_level']
+        water_level = file_utils.read_hdf_file_as_numpy(filepath=hec_ras_path, property_path=water_level_metadata['path'])
+        min_water_level, max_water_level = np.min(water_level), np.max(water_level)
+        print(f'Water Level: min = {min_water_level}, max = {max_water_level}')
+        norm = plt.Normalize(vmin=min_water_level, vmax=max_water_level)
+    else:
+        node_pred_min, node_pred_max = node_pred.min(), node_pred.max()
+        node_gt_min, node_gt_max = node_ground_truth.min(), node_ground_truth.max()
+        print(f'Node Prediction: min = {node_pred_min}, max = {node_pred_max}')
+        print(f'Node Ground Truth: min = {node_gt_min}, max = {node_gt_max}')
+        norm = plt.Normalize(vmin=min(node_pred_min, node_gt_min), vmax=max(node_pred_max, node_gt_max))
+
     cell_shp_path = f'../data/datasets/{MESH}/{EVENT_NAME}/raw/{CELL_SHP_FILENAME}'
     node_df = gpd.read_file(cell_shp_path)
     value_column = 'water_level'
 
     fig, ax = plt.subplots(figsize=(20,10), ncols=3)
 
-    node_pred_min, node_pred_max = node_pred.min(), node_pred.max()
-    node_gt_min, node_gt_max = node_ground_truth.min(), node_ground_truth.max()
-    print(f'Node Prediction: min = {node_pred_min}, max = {node_pred_max}')
-    print(f'Node Ground Truth: min = {node_gt_min}, max = {node_gt_max}')
-    norm = plt.Normalize(vmin=min(node_pred_min, node_gt_min), vmax=max(node_pred_max, node_gt_max))
     cmap = plt.get_cmap('RdYlGn_r') 
     shared_plot_kwargs = {
         'cmap': cmap,
@@ -98,6 +116,24 @@ def plot_node_flood_map(node_pred, node_ground_truth, timestep):
 
 
 def plot_edge_flood_map(edge_pred, edge_ground_truth, timestep):
+    # Get range of values for velocity
+    if NORMALIZE_WITH_ENTIRE_DATASET:
+        feature_metadata_path = f"../data/feature_metadata.yaml"
+        feature_metadata = file_utils.read_yaml_file(feature_metadata_path)
+        hec_ras_path = f'../data/datasets/{MESH}/{EVENT_NAME}/raw/{HEC_RAS_FILENAME}'
+
+        velocity_metadata = feature_metadata['edge_features']['velocity']
+        velocity = file_utils.read_hdf_file_as_numpy(filepath=hec_ras_path, property_path=velocity_metadata['path'])
+        min_velocity, max_velocity = np.min(velocity), np.max(velocity)
+        print(f'Velocity: min = {min_velocity}, max = {max_velocity}')
+        norm = plt.Normalize(vmin=min_velocity, vmax=max_velocity)
+    else:
+        edge_pred_min, edge_pred_max = edge_pred.min(), edge_ground_truth.max()
+        edge_gt_min, edge_gt_max = edge_ground_truth.min(), edge_ground_truth.max()
+        print(f'Edge Prediction: min = {edge_pred_min}, max = {edge_pred_max}')
+        print(f'Edge Ground Truth: min = {edge_gt_min}, max = {edge_gt_max}')
+        norm = plt.Normalize(vmin=min(edge_pred_min, edge_gt_min), vmax=max(edge_pred_max, edge_gt_max))
+
     # TODO: See if this is correct
     edge_pred = edge_pred[:edge_pred.shape[0] // 2]
     edge_ground_truth = edge_ground_truth[:edge_ground_truth.shape[0] // 2]
@@ -108,11 +144,6 @@ def plot_edge_flood_map(edge_pred, edge_ground_truth, timestep):
 
     fig, ax = plt.subplots(figsize=(20,10), ncols=3)
 
-    edge_pred_min, edge_pred_max = edge_pred.min(), edge_ground_truth.max()
-    edge_gt_min, edge_gt_max = edge_ground_truth.min(), edge_ground_truth.max()
-    print(f'Edge Prediction: min = {edge_pred_min}, max = {edge_pred_max}')
-    print(f'Edge Ground Truth: min = {edge_gt_min}, max = {edge_gt_max}')
-    norm = plt.Normalize(vmin=min(edge_pred_min, edge_gt_min), vmax=max(edge_pred_max, edge_gt_max))
     cmap = plt.get_cmap('RdYlGn_r') 
     shared_plot_kwargs = {
         'cmap': cmap,
@@ -198,9 +229,7 @@ def main():
     model.load_state_dict(torch.load(SAVED_MODEL_PATH, weights_only=True))
 
     # Perform inference for 1 timestep
-    # idx = len(dataset) - 100
-    idx = 50
-    timestep_data = dataset[idx]
+    timestep_data = dataset[TIMESTEP_IDX]
 
     model.eval()
     with torch.no_grad():
