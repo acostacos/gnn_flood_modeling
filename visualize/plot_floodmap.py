@@ -1,11 +1,24 @@
+import sys
+sys.path.append('..')
+
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 
 from data import FloodEventDataset, InMemoryFloodEventDataset
 from torch_geometric.transforms import Compose, ToUndirected
 from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, SWEGNN
 from utils import file_utils
+
+MESH = 'lr'
+EVENT_NAME = 'lrp01'
+CELL_SHP_FILENAME = 'cell_centers.shp'
+LINK_SHP_FILENAME = 'links.shp'
+MODEL = 'NodeEdgeGNN'
+SAVED_MODEL_PATH = '../saved_models/nodeedge_dual/NodeEdgeGNN_Dual_lrp01_2025-03-29_15-06-44.pt'
+EDGE_PLOT_TITLE = 'Flood Mapping for Low Resolution Mesh Edges'
+EDGE_PLOT_PATH = 'node_lr_edge_plot.png'
 
 def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
     if model_name == 'NodeEdgeGNN' or model_name == 'NodeEdgeGNN_Dual':
@@ -24,31 +37,81 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
         return MLP(**kwargs)
     raise ValueError(f'Invalid model name: {model_name}')
 
+
+def plot_node_flood_map(node_pred, node_ground_truth):
+    cell_shp_path = f'../data/datasets/{MESH}/{EVENT_NAME}/raw/{CELL_SHP_FILENAME}'
+    node_df = gpd.read_file(cell_shp_path)
+    value_column = 'water_level'
+
+    fig, ax = plt.subplots(figsize=(20,10), ncols=3)
+
+    node_pred_min, node_pred_max = node_pred.min(), node_pred.max()
+    node_gt_min, node_gt_max = node_ground_truth.min(), node_ground_truth.max()
+    print(f'Node Prediction: min = {node_pred_min}, max = {node_pred_max}')
+    print(f'Node Ground Truth: min = {node_gt_min}, max = {node_gt_max}')
+    norm = plt.Normalize(vmin=min(node_pred_min, node_gt_min), vmax=max(node_pred_max, node_gt_max))
+    cmap = plt.get_cmap('RdYlGn_r') 
+    shared_plot_kwargs = {
+        'cmap': cmap,
+        'norm': norm,
+        'column': value_column,
+        'edgecolor': 'black',
+        'linewidth': 0.3,
+        'legend': True,
+        'legend_kwds': {'label': "Water Level", 'orientation': "vertical"},
+    }
+
+    # Prediction
+    np_node_pred = node_pred.cpu().numpy()
+    pred_node_df = node_df.copy()
+    pred_node_df[value_column] = np_node_pred
+
+    pred_node_df.plot(ax=ax[0], **shared_plot_kwargs)
+    ax[0].set_title('Node Prediction')
+    ax[0].set_axis_off()
+
+    # Ground Truth
+    np_node_ground_truth = node_ground_truth.cpu().numpy()
+    gt_node_df = node_df.copy()
+    gt_node_df[value_column] = np_node_ground_truth
+    gt_node_df.plot(ax=ax[1], **shared_plot_kwargs)
+    ax[1].set_title('Node Ground Truth')
+    ax[1].set_axis_off()
+
+    # Difference
+    node_diff = np.abs(np_node_pred - np_node_ground_truth)
+    print(f'Node Difference: min = {node_diff.min()}, max = {node_diff.max()}')
+    diff_node_df = node_df.copy()
+    diff_node_df[value_column] = node_diff
+    diff_node_df.plot(ax=ax[2],
+                      cmap='seismic',
+                      column=value_column,
+                      edgecolor='black',
+                      linewidth=0.3,
+                      legend=True,
+                      legend_kwds={'label': "Difference", 'orientation': "vertical"})
+    ax[2].set_title('Node Difference')
+    ax[2].set_axis_off()
+
+    fig.tight_layout()
+    fig.savefig("plots/lr_node_flood_map.jpg", format='jpg', dpi=300, bbox_inches='tight')
+
+
+def visualize_edge_flood_map(edge_pred, edge_ground_truth):
+    pass
+
+
 def main():
-    MESH = 'lr'
-    EVENT_NAME = 'lrp01'
-    CELL_SHP_FILENAME = 'LR_Mesh_200m.shp'
-    LINK_SHP_FILENAME = 'links.shp'
-    MODEL = 'NodeEdgeGNN'
-    SAVED_MODEL_PATH = 'saved_models/NodeEdgeGNN_Dual_lrp01_2025-03-29_15-06-44.pt'
-    NODE_PLOT_TITLE = 'Flood Mapping for Low Resolution Mesh Cells'
-    NODE_PLOT_PATH = 'visualize/node_lr_node_plot.png'
-    EDGE_PLOT_TITLE = 'Flood Mapping for Low Resolution Mesh Edges'
-    EDGE_PLOT_PATH = 'visualize/node_lr_edge_plot.png'
-
-
-    config_path = f"configs/{f'{MESH}_' if MESH != 'init' else ''}config.yaml"
-    cell_shp_path = f'data/datasets/{MESH}/{EVENT_NAME}/{CELL_SHP_FILENAME}'
-    link_shp_path = f'data/datasets/{MESH}/{EVENT_NAME}/{LINK_SHP_FILENAME}'
-
+    config_path = f"../configs/{f'{MESH}_' if MESH != 'init' else ''}config.yaml"
     config = file_utils.read_yaml_file(config_path)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # Load dataset
     dataset_parameters = config['dataset_parameters']
-    dataset_info_path = dataset_parameters['dataset_info_path']
+    dataset_info_path = f"../{dataset_parameters['dataset_info_path']}"
     storage_mode = dataset_parameters['storage_mode']
     event_parameters = dataset_parameters['flood_events'][EVENT_NAME]
+    event_parameters['root_dir'] = f"../{event_parameters['root_dir']}"
 
     dataset_class = FloodEventDataset if storage_mode == 'disk' else InMemoryFloodEventDataset
     transform = Compose([ToUndirected()])
@@ -83,45 +146,31 @@ def main():
     model.eval()
     with torch.no_grad():
         timestep_data = timestep_data.to(device)
-        pred = model(timestep_data)
+        node_pred, edge_pred = model(timestep_data)
     
-    ground_truth = timestep_data.y
+    node_ground_truth = timestep_data.y
+    edge_ground_truth = timestep_data.y_edge
+    
+    link_shp_path = f'../data/datasets/{MESH}/{EVENT_NAME}/{LINK_SHP_FILENAME}'
 
-    print(timestep_data.x.shape, pred.shape, ground_truth.shape)
+    plot_node_flood_map(node_pred, node_ground_truth)
 
-    # Get max and min values
-    pred_min, pred_max = pred.min(), pred.max()
-    gt_min, gt_max = ground_truth.min(), ground_truth.max()
-    print(f'Pred: max = {pred_max}, min = {pred_min}')
-    print(f'Ground Truth: max = {gt_max}, min = {gt_min}')
 
-#     # TODO: Get an area of the dataset from prediction
+    # # Edge Visualization
+    # cell_shp_path = f'../data/datasets/{MESH}/{EVENT_NAME}/raw/{CELL_SHP_FILENAME}'
+    # node_df = gpd.read_file(cell_shp_path)
+    # value_column = 'water_level'
+    # node_df[value_column] = node_pred.cpu().numpy()
 
-#     # TODO: Adjust based on data
-#     breaks = [0, 10, 20, 30, 40, float('inf')]
+    # norm = plt.Normalize(vmin=node_pred_min, vmax=node_pred_max)
+    # cmap = plt.get_cmap('RdYlGn_r') 
+    # node_df.plot(column=value_column, cmap=cmap, norm=norm, 
+    #      edgecolor='black', linewidth=0.3, legend=True,
+    #      legend_kwds={'label': "Water Level", 'orientation': "vertical"})
 
-#     # Create a colormap
-#     cmap = plt.get_cmap('RdYlGn_r')  # Reversed Red-Yellow-Green
-#     # TODO: # Adjust based on your data
-#     norm = plt.Normalize(vmin=0, vmax=40)
-
-#     # Node Visualization
-#     node_df = gpd.read_file(cell_shp_path)
-#     value_column = 'your_value_column'
-
-#     # TODO: Filter cells with area
-
-#     # Color cells based on prediction and ground truth
-#     node_df.plot(column=value_column, cmap=cmap, norm=norm, 
-#          edgecolor='black', linewidth=0.3, legend=True,
-#          legend_kwds={'label': "Value Ranges", 'orientation': "horizontal"})
-
-#     plt.title(NODE_PLOT_TITLE)
-#     plt.show()
-#     plt.savefig(NODE_PLOT_PATH)
-
-#     # TODO: Edge visualization
-#     # Edge Visualization
+    # plt.title(NODE_PLOT_TITLE)
+    # plt.show()
+    # plt.savefig(NODE_PLOT_PATH)
 
 if __name__ == '__main__':
     main()
