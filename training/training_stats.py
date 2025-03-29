@@ -6,6 +6,8 @@ from utils import Logger
 class TrainingStats:
     def __init__(self, logger: Logger = None):
         self.train_epoch_loss = []
+        self.train_info = None
+        self.val_info = None
 
         self.log = print
         if logger is not None and hasattr(logger, 'log'):

@@ -30,7 +30,7 @@ def main():
     CELL_SHP_FILENAME = 'LR_Mesh_200m.shp'
     LINK_SHP_FILENAME = 'links.shp'
     MODEL = 'NodeEdgeGNN'
-    SAVED_MODEL_PATH = ''
+    SAVED_MODEL_PATH = 'saved_models/NodeEdgeGNN_Dual_lrp01_2025-03-29_15-06-44.pt'
     NODE_PLOT_TITLE = 'Flood Mapping for Low Resolution Mesh Cells'
     NODE_PLOT_PATH = 'visualize/node_lr_node_plot.png'
     EDGE_PLOT_TITLE = 'Flood Mapping for Low Resolution Mesh Edges'
@@ -73,8 +73,8 @@ def main():
         'device': device,
     }
 
-    model = model_factory(SAVED_MODEL_PATH, **model_params, **base_model_params)
-    model.load_state_dict(torch.load(MODEL, weights_only=True))
+    model = model_factory(MODEL, **model_params, **base_model_params)
+    model.load_state_dict(torch.load(SAVED_MODEL_PATH, weights_only=True))
 
     # Perform inference for 1 timestep
     idx = len(dataset) - 100
@@ -87,39 +87,41 @@ def main():
     
     ground_truth = timestep_data.y
 
+    print(timestep_data.x.shape, pred.shape, ground_truth.shape)
+
     # Get max and min values
-    pred_max = pred.max(), pred_min = pred.min()
-    gt_max = ground_truth.max(), gt_min = ground_truth.min()
+    pred_min, pred_max = pred.min(), pred.max()
+    gt_min, gt_max = ground_truth.min(), ground_truth.max()
     print(f'Pred: max = {pred_max}, min = {pred_min}')
     print(f'Ground Truth: max = {gt_max}, min = {gt_min}')
 
-    # TODO: Get an area of the dataset from prediction
+#     # TODO: Get an area of the dataset from prediction
 
-    # TODO: Adjust based on data
-    breaks = [0, 10, 20, 30, 40, float('inf')]
+#     # TODO: Adjust based on data
+#     breaks = [0, 10, 20, 30, 40, float('inf')]
 
-    # Create a colormap
-    cmap = plt.get_cmap('RdYlGn_r')  # Reversed Red-Yellow-Green
-    # TODO: # Adjust based on your data
-    norm = plt.Normalize(vmin=0, vmax=40)
+#     # Create a colormap
+#     cmap = plt.get_cmap('RdYlGn_r')  # Reversed Red-Yellow-Green
+#     # TODO: # Adjust based on your data
+#     norm = plt.Normalize(vmin=0, vmax=40)
 
-    # Node Visualization
-    node_df = gpd.read_file(cell_shp_path)
-    value_column = 'your_value_column'
+#     # Node Visualization
+#     node_df = gpd.read_file(cell_shp_path)
+#     value_column = 'your_value_column'
 
-    # TODO: Filter cells with area
+#     # TODO: Filter cells with area
 
-    # Color cells based on prediction and ground truth
-    node_df.plot(column=value_column, cmap=cmap, norm=norm, 
-         edgecolor='black', linewidth=0.3, legend=True,
-         legend_kwds={'label': "Value Ranges", 'orientation': "horizontal"})
+#     # Color cells based on prediction and ground truth
+#     node_df.plot(column=value_column, cmap=cmap, norm=norm, 
+#          edgecolor='black', linewidth=0.3, legend=True,
+#          legend_kwds={'label': "Value Ranges", 'orientation': "horizontal"})
 
-    plt.title(NODE_PLOT_TITLE)
-    plt.show()
-    plt.savefig(NODE_PLOT_PATH)
+#     plt.title(NODE_PLOT_TITLE)
+#     plt.show()
+#     plt.savefig(NODE_PLOT_PATH)
 
-    # TODO: Edge visualization
-    # Edge Visualization
+#     # TODO: Edge visualization
+#     # Edge Visualization
 
 if __name__ == '__main__':
     main()
