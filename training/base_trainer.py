@@ -35,7 +35,7 @@ class BaseTrainer:
 
         self.log = print
         if logger is not None and hasattr(logger, 'log'):
-            self.log = self.log
+            self.log = logger.log
         self.stats = TrainingStats(logger)
 
     def train(self):

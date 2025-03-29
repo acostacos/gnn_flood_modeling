@@ -11,6 +11,7 @@ from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, SWEGNN
 from training import NodeRegressionTrainer, DualRegressionTrainer
 from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import Compose, ToUndirected
+from typing import Tuple
 from utils import Logger, file_utils
 from utils.loss_func_utils import get_loss_func
 
@@ -45,9 +46,9 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
         return MLP(**kwargs)
     raise ValueError(f'Invalid model name: {model_name}')
 
-def get_loss_func_key(model_name: str) -> str:
+def get_loss_func_key(model_name: str) -> str | Tuple[str, str]:
     if model_name == 'NodeEdgeGNN_Dual':
-        return 'combined_l1'
+        return ('l1', 'l1')
     return 'l1'
 
 def trainer_factory(model_name: str, **kwargs):
@@ -124,17 +125,23 @@ def main():
             if event_key not in datasets:
                 raise ValueError(f'Test dataset {event_key} not found in datasets. Check your config file.')
 
+        loss_func_params = {}
+        if isinstance(loss_func_key, Tuple):
+            loss_func_params['loss_func'] = get_loss_func(loss_func_key[0])
+            loss_func_params['edge_loss_func'] = get_loss_func(loss_func_key[1])
+        else:
+            loss_func_params['loss_func'] = get_loss_func(loss_func_key)
+
         for event_key in test_dataset_keys:
             train_datasets = [d for k, d in datasets.items() if k != event_key]
             test_dataset = datasets[event_key]
             logger.log(f"Training with {', '.join([k for k in datasets.keys() if k != event_key])}. Testing on {event_key}.")
             model = model_factory(args.model, **model_params, **base_model_params)
-            loss_func = get_loss_func(loss_func_key)
 
             optimizer = torch.optim.Adam(model.parameters(), lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
             trainer = trainer_factory(args.model, train_datasets=train_datasets, val_dataset=test_dataset, model=model,
-                                            loss_func=loss_func, optimizer=optimizer, num_epochs=train_config['num_epochs'],
-                                            device=args.device, debug=args.debug, logger=logger)
+                                            optimizer=optimizer, num_epochs=train_config['num_epochs'],
+                                            device=args.device, debug=args.debug, logger=logger, **loss_func_params)
             trainer.train()
             trainer.validate()
             stats = trainer.get_stats()
