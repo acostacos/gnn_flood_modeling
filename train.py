@@ -134,7 +134,7 @@ def main():
             optimizer = torch.optim.Adam(model.parameters(), lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
             trainer = trainer_factory(args.model, train_datasets=train_datasets, val_dataset=test_dataset, model=model,
                                             loss_func=loss_func, optimizer=optimizer, num_epochs=train_config['num_epochs'],
-                                            device=args.device, logger=logger)
+                                            device=args.device, debug=args.debug, logger=logger)
             trainer.train()
             trainer.validate()
             stats = trainer.get_stats()

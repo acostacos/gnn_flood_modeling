@@ -22,6 +22,7 @@ class BaseTrainer:
                  optimizer: Optimizer,
                  num_epochs: int,
                  device: str,
+                 debug: bool = False,
                  logger: Logger = None):
         self.train_datasets = train_datasets
         self.val_dataset = val_dataset
@@ -30,6 +31,7 @@ class BaseTrainer:
         self.optimizer = optimizer
         self.num_epochs = num_epochs
         self.device = device
+        self.debug = debug
 
         self.log = print
         if logger is not None and hasattr(logger, 'log'):
@@ -61,7 +63,7 @@ class BaseTrainer:
             self.stats.add_train_loss(epoch_loss)
             self.log(f'Epoch [{epoch + 1}/{self.num_epochs}], Training Loss: {epoch_loss:.4f}')
 
-            if epoch > 0 and epoch % 5 == 0:
+            if self.debug and epoch > 0 and epoch % 5 == 0:
                 self.print_memory_usage(epoch)
 
         self.stats.end_train()
