@@ -23,6 +23,9 @@ class TrainingStats:
     def add_train_loss(self, loss):
         self.train_epoch_loss.append(loss)
 
+    def set_additional_train_info(self, info):
+        self.train_info = info
+
     def get_train_loss(self):
         return self.train_epoch_loss
 
@@ -39,6 +42,9 @@ class TrainingStats:
     def set_val_loss(self, loss):
         self.val_loss = loss
 
+    def set_additional_val_info(self, info):
+        self.val_info = info
+
     def get_val_loss(self):
         return self.val_loss
 
@@ -49,11 +55,17 @@ class TrainingStats:
             self.log(f'Minimum training Loss: {np.min(self.train_epoch_loss):.4f}')
             self.log(f'Maximum training Loss: {np.max(self.train_epoch_loss):.4f}')
 
+        if self.train_info is not None:
+            self.log(f'Additional training info: {self.train_info}')
+
         if self.train_start_time is not None and self.train_end_time is not None:
             self.log(f'Total training time: {self.get_train_time():.4f} seconds')
 
         if self.val_loss is not None:
             self.log(f'Validation Loss: {self.val_loss:.4f}')
+
+        if self.val_info is not None:
+            self.log(f'Additional validation info: {self.val_info}')
 
         if self.val_start_time is not None and self.val_end_time is not None: 
             self.log(f'Inference time: {self.get_val_time():.4f} seconds')

@@ -59,6 +59,8 @@ class DualRegressionTrainer(BaseTrainer):
             if self.debug and epoch > 0 and epoch % 5 == 0:
                 self.print_memory_usage(epoch)
 
+        additional_info = f'Final Node Loss: {epoch_node_loss:.4f}, Final Edge Loss: {epoch_edge_loss:.4f}'
+        self.stats.set_additional_train_info(additional_info)
         self.stats.end_train()
 
     def validate(self):
@@ -91,9 +93,9 @@ class DualRegressionTrainer(BaseTrainer):
         avg_loss = running_loss / len_dataset
         avg_node_loss = running_node_loss / len_dataset
         avg_edge_loss = running_edge_loss / len_dataset
-        self.log(f'Validation Node Loss: {avg_node_loss:.4f}')
-        self.log(f'Validation Edge Loss: {avg_edge_loss:.4f}')
         self.stats.set_val_loss(avg_loss)
+        additional_info = f'Validation Node Loss: {avg_node_loss:.4f}, Validation Edge Loss: {avg_edge_loss:.4f}'
+        self.stats.set_additional_val_info(additional_info)
 
         self.stats.end_val(len_dataset)
 

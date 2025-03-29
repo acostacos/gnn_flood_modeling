@@ -33,10 +33,11 @@ class DatasetDebugHelper:
         if len(timesteps) > 1:
             self.logger(f'Timestep delta: {timesteps[1] - timesteps[0]}')
 
-    def print_graph_properties(self, edge_index: Tensor, pos: Tensor):
+    def print_graph_properties(self, edge_index: Tensor, pos: Tensor=None):
         self.logger('Graph properties:')
         self.logger(f'\tEdge Index: {edge_index.shape}')
-        self.logger(f'\tPos: {pos.shape}')
+        if pos is not None:
+            self.logger(f'\tPos: {pos.shape}')
 
     def assign_features(self, feature_class: str, feature_type: str, name: str, data: Tensor):
         if feature_class not in self.debug_features:
