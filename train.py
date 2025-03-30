@@ -86,7 +86,6 @@ def main():
             'batch_size': train_config['batch_size'],
             'pin_memory': True,
             'num_workers': 2,
-            'pin_memory': True,
             'persistent_workers': True,
         }
         transform = Compose([ToUndirected()])
