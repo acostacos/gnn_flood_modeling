@@ -48,7 +48,7 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
 
 def get_loss_func_key(model_name: str) -> str | Tuple[str, str]:
     if model_name == 'NodeEdgeGNN_Dual':
-        return ('l1', 'l1')
+        return ('mse', 'mse')
     return 'l1'
 
 def trainer_factory(model_name: str, **kwargs):

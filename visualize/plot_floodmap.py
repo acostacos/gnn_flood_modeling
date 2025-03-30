@@ -12,17 +12,16 @@ from torch_geometric.transforms import Compose, ToUndirected
 from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, SWEGNN
 from utils import file_utils
 
-TIMESTEP_IDX = 1
 # TIMESTEP_IDX = 48 # Early 
-# TIMESTEP_IDX = 384 # Late
-NORMALIZE_WITH_ENTIRE_DATASET = True
+TIMESTEP_IDX = 384 # Late
+NORMALIZE_WITH_ENTIRE_DATASET = False
 MESH = 'lr'
 EVENT_NAME = 'lrp01'
 HEC_RAS_FILENAME = 'M01.p01.hdf'
 CELL_SHP_FILENAME = 'cell_centers.shp'
 LINK_SHP_FILENAME = 'links.shp'
-MODEL = 'NodeEdgeGNN'
-SAVED_MODEL_PATH = '../saved_models/nodeedge_dual/NodeEdgeGNN_Dual_lrp01_2025-03-29_15-06-44.pt'
+MODEL = 'NodeEdgeGNN_Dual'
+SAVED_MODEL_PATH = '../saved_models/nodeedge_dual/NodeEdgeGNN_Dual_lrp01_2025-03-30_21-22-59.pt'
 
 def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
     if model_name == 'NodeEdgeGNN' or model_name == 'NodeEdgeGNN_Dual':
@@ -239,8 +238,14 @@ def main():
     node_ground_truth = timestep_data.y
     edge_ground_truth = timestep_data.y_edge
     timestep = timestep_data.timestep
-    
+
+    # # For node prediction, show with reference to first timestep
+    # first_timestep_data = dataset[0].to(device)
+    # node_pred = node_pred - first_timestep_data.y
+    # node_ground_truth = node_ground_truth - first_timestep_data.y
+
     plot_node_flood_map(node_pred, node_ground_truth, timestep)
+
     plot_edge_flood_map(edge_pred, edge_ground_truth, timestep)
 
 if __name__ == '__main__':
