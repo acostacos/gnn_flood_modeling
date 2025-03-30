@@ -138,5 +138,5 @@ class NodeEdgeConv(MessagePassing):
     def message(self, x_i: Tensor, x_j: Tensor, edge_attr: Tensor):
         return self.msg_mlp(torch.cat([x_i, x_j, edge_attr], dim=-1))
 
-    def udpate(self, x_i: Tensor, edge_attr: Tensor):
-        return self.update_mlp(torch.cat([x_i, edge_attr], dim=-1))
+    def update(self, aggr_out: Tensor, x: Tensor):
+        return self.update_mlp(torch.cat([x, aggr_out], dim=-1))
