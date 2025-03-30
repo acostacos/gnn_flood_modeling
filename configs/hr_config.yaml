@@ -9,21 +9,21 @@ dataset_parameters:
       hec_ras_hdf_file: 'M01.p03.hdf'
       nodes_shp_file: 'cell_centers.shp'
       edges_shp_file: 'links.shp'
-    hrp06:
-      root_dir: 'data/datasets/hr/hrp06'
-      hec_ras_hdf_file: 'M01.p06.hdf'
-      nodes_shp_file: 'cell_centers.shp'
-      edges_shp_file: 'links.shp'
+    # hrp06:
+    #   root_dir: 'data/datasets/hr/hrp06'
+    #   hec_ras_hdf_file: 'M01.p06.hdf'
+    #   nodes_shp_file: 'cell_centers.shp'
+    #   edges_shp_file: 'links.shp'
     # hrp07:
     #   root_dir: 'data/datasets/hr/hrp07'
     #   hec_ras_hdf_file: 'M01.p07.hdf'
     #   nodes_shp_file: 'cell_centers.shp'
     #   edges_shp_file: 'links.shp'
-    # hrp09:
-    #   root_dir: 'data/datasets/hr/hrp09'
-    #   hec_ras_hdf_file: 'M01.p09.hdf'
-    #   nodes_shp_file: 'cell_centers.shp'
-    #   edges_shp_file: 'links.shp'
+    hrp09:
+      root_dir: 'data/datasets/hr/hrp09'
+      hec_ras_hdf_file: 'M01.p09.hdf'
+      nodes_shp_file: 'cell_centers.shp'
+      edges_shp_file: 'links.shp'
 
   node_features:
     area          : True    # Cell area per node
