@@ -246,6 +246,10 @@ def main():
 
     plot_node_flood_map(node_pred, node_ground_truth, timestep)
 
+    # For edge prediction, get the absolute value of the values
+    edge_pred = torch.abs(edge_pred)
+    edge_ground_truth = torch.abs(edge_ground_truth)
+
     plot_edge_flood_map(edge_pred, edge_ground_truth, timestep)
 
 if __name__ == '__main__':

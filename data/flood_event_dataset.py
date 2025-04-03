@@ -1,9 +1,8 @@
 import os
 import torch
 import numpy as np
-import pickle
+import h5py
 
-from datetime import datetime
 from pathlib import Path
 from torch import Tensor
 from torch_geometric.data import Dataset, Data
@@ -89,8 +88,7 @@ class FloodEventDataset(Dataset):
 
     @property
     def processed_file_names(self):
-        data_filenames = [f'data_{i+1}.pt' for i in range(self.len())]
-        return [*data_filenames]
+        return ['processed_data.h5']
 
     def download(self):
         pass
@@ -103,27 +101,54 @@ class FloodEventDataset(Dataset):
         if self.debug:
             self.debug_helper.print_data_format(self.previous_timesteps)
 
-        for i in range(self.len()):
-            node_features = self._get_timestep_data(i, static_nodes, dynamic_nodes)
-            edge_features = self._get_timestep_data(i, static_edges, dynamic_edges)
-            label_node = dynamic_nodes[i+1][:, [-1]] # Water level
-            label_edges = dynamic_edges[i+1] # Velocity
+        num_datapoints = self.len()
 
-            if self.debug:
-                self.debug_helper.test_data_format(FEATURE_CLASS_NODE, i, node_features, self.previous_timesteps)
-                self.debug_helper.test_data_format(FEATURE_CLASS_EDGE, i, edge_features, self.previous_timesteps)
-                self.debug_helper.compute_total_size([node_features, edge_index, edge_features, label_node, label_edges])
+        with h5py.File(self.processed_paths[0], 'w') as file:
+            x_dset = file.create_dataset('x', shape=(num_datapoints, 0, 0), maxshape=(num_datapoints, None, None))
+            edge_attr_dset = file.create_dataset('edge_attr', shape=(num_datapoints, 0, 0), maxshape=(num_datapoints, None, None))
+            y_dset = file.create_dataset('y', shape=(num_datapoints, 0, 1), maxshape=(num_datapoints, None, 1))
+            y_edge_dset = file.create_dataset('y_edge', shape=(num_datapoints, 0, 1), maxshape=(num_datapoints, None, 1))
 
-            data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_features,
-                        y=label_node, y_edge=label_edges, timestep=self.timesteps[i])
+            for i in range(num_datapoints):
+                node_features = self._get_timestep_data(i, static_nodes, dynamic_nodes)
+                edge_features = self._get_timestep_data(i, static_edges, dynamic_edges)
 
-            if self.pre_filter is not None and not self.pre_filter(data):
-                continue
+                label_node = dynamic_nodes[i+1][:, [-1]] # Water level
+                label_edges = dynamic_edges[i+1] # Velocity
 
-            if self.pre_transform is not None:
-                data = self.pre_transform(data)
+                if self.debug:
+                    self.debug_helper.test_data_format(FEATURE_CLASS_NODE, i, node_features, self.previous_timesteps)
+                    self.debug_helper.test_data_format(FEATURE_CLASS_EDGE, i, edge_features, self.previous_timesteps)
+                    self.debug_helper.compute_total_size([node_features, edge_index, edge_features, label_node, label_edges])
 
-            torch.save(data, self.processed_paths[i])
+                data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_features,
+                            y=label_node, y_edge=label_edges, timestep=self.timesteps[i])
+
+                # Apply transforms
+                if self.pre_filter is not None and not self.pre_filter(data):
+                    continue
+
+                if self.pre_transform is not None:
+                    data = self.pre_transform(data)
+
+                # Resize datasets if they are empty based on transformations
+                if x_dset.shape[1] == 0 and x_dset.shape[2] == 0:
+                    x_dset.resize(node_features.shape[0], axis=1)
+                    x_dset.resize(node_features.shape[1], axis=2)
+                if edge_attr_dset.shape[1] == 0 and edge_attr_dset.shape[2] == 0:
+                    edge_attr_dset.resize(edge_features.shape[0], axis=1)
+                    edge_attr_dset.resize(edge_features.shape[1], axis=2)
+                if y_dset.shape[1] == 0:
+                    y_dset.resize(label_node.shape[0], axis=1)
+                if y_edge_dset.shape[1] == 0:
+                    y_edge_dset.resize(label_edges.shape[0], axis=1)
+
+                x_dset[i] = data.x
+                edge_attr_dset[i] = data.edge_attr
+                y_dset[i] = data.y
+                y_edge_dset[i] = data.y_edge
+
+            file.create_dataset('edge_index', data=edge_index)
 
         self.save_dataset_info()
 
@@ -135,17 +160,27 @@ class FloodEventDataset(Dataset):
         return len(self.timesteps) - 1 # Last time step is only used as a label
 
     def get(self, idx):
-        filename = self.processed_paths[idx]
+        if idx in self.cache:
+            return self.cache[idx]
 
-        if filename in self.cache:
-            data = self.cache[filename]
-            return data
+        with h5py.File(self.processed_paths[0], 'r') as file:
+            x = torch.from_numpy(file['x'][idx])
+            edge_attr = torch.from_numpy(file['edge_attr'][idx])
+            y = torch.from_numpy(file['y'][idx])
+            y_edge = torch.from_numpy(file['y_edge'][idx])
+            edge_index = torch.from_numpy(file['edge_index'][:])
+            timestep = self.timesteps[idx]
 
-        data = torch.load(filename, pickle_module=pickle)
+            data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, y=y, y_edge=y_edge, timestep=timestep)
 
         if self.estimated_cache_size < convert_utils.gb_to_bytes(MAX_CACHE_SIZE_IN_GB):
-            self.cache[filename] = data
-            self.estimated_cache_size += os.path.getsize(filename)
+            self.cache[idx] = data
+
+            total_bytes = 0
+            for value in data.values():
+                if torch.is_tensor(value):
+                    total_bytes += value.element_size() * value.nelement()
+            self.estimated_cache_size += total_bytes
 
         return data
 

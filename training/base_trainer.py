@@ -57,7 +57,7 @@ class BaseTrainer:
                     loss.backward()
                     self.optimizer.step()
 
-                    running_loss += loss.item()
+                    running_loss += loss.cpu().item()
 
             epoch_loss = running_loss / len_training_samples
             self.stats.add_train_loss(epoch_loss)
@@ -81,7 +81,7 @@ class BaseTrainer:
 
                 loss = self.compute_loss(self.loss_func, batch, output)
 
-                running_loss += loss.item()
+                running_loss += loss.cpu().item()
 
         avg_loss = running_loss / len_dataset
         self.stats.set_val_loss(avg_loss)

@@ -13,6 +13,10 @@ class DualRegressionTrainer(BaseTrainer):
         self.mode = mode
         self.edge_loss_func = edge_loss_func
     
+    def get_prediction(self, graph: Data) -> Tuple:
+        node_pred, _ = self.model(graph)
+        return node_pred
+
     def train(self):
         if self.mode == 'node':
             super().train()
@@ -35,15 +39,16 @@ class DualRegressionTrainer(BaseTrainer):
                     self.optimizer.zero_grad()
 
                     batch = batch.to(self.device)
-                    output = self.get_prediction(batch)
+                    output = self._get_prediction_dual(batch)
 
-                    total_loss, f_node_loss, f_edge_loss = self._compute_loss_dual(self.loss_func, batch, output)
+                    node_loss, edge_loss = self._compute_loss_dual(self.loss_func, batch, output)
+                    total_loss = node_loss + edge_loss
                     total_loss.backward()
                     self.optimizer.step()
 
-                    running_loss += total_loss.item()
-                    running_node_loss += f_node_loss
-                    running_edge_loss += f_edge_loss
+                    running_loss += total_loss.cpu().item()
+                    running_node_loss += node_loss.cpu().item()
+                    running_edge_loss += edge_loss.cpu().item()
 
             epoch_loss = running_loss / len_training_samples
             epoch_node_loss = running_node_loss / len_training_samples
@@ -80,13 +85,14 @@ class DualRegressionTrainer(BaseTrainer):
         with torch.no_grad():
             for batch in self.val_dataset:
                 batch = batch.to(self.device)
-                output = self.get_prediction(batch)
+                output = self._get_prediction_dual(batch)
 
-                total_loss, f_node_loss, f_edge_loss = self._compute_loss_dual(self.loss_func, batch, output)
+                node_loss, edge_loss = self._compute_loss_dual(self.loss_func, batch, output)
+                total_loss = node_loss + edge_loss
 
                 running_loss += total_loss.item()
-                running_node_loss += f_node_loss
-                running_edge_loss += f_edge_loss
+                running_node_loss += node_loss.cpu().item()
+                running_edge_loss += edge_loss.cpu().item()
 
         avg_loss = running_loss / len_dataset
         avg_node_loss = running_node_loss / len_dataset
@@ -97,29 +103,17 @@ class DualRegressionTrainer(BaseTrainer):
 
         self.stats.end_val(len_dataset)
 
-    def get_prediction(self, graph: Data) -> Tuple:
-        if self.mode == 'node':
-            return self._get_prediction_node(graph)
-        return self._get_prediction_dual(graph)
-    
-    def _get_prediction_node(self, graph: Data) -> Tuple:
-        node_pred, _ = self.model(graph)
-        return node_pred
-
     def _get_prediction_dual(self, graph: Data) -> Tuple:
         node_pred, edge_pred = self.model(graph)
         return (node_pred, edge_pred)
 
-    def _compute_loss_dual(self, loss_func: Callable | Module, graph: Data, output: Tuple) -> Tuple[Tensor, float]:
+    def _compute_loss_dual(self, loss_func: Callable | Module, graph: Data, output: Tuple) -> Tuple[Tensor, Tensor]:
         node_pred, edge_pred = output
 
         node_label = graph.y
         node_loss = loss_func(node_pred, node_label)
-        node_loss_as_float = node_loss.cpu().item()
 
         edge_label = graph.y_edge
         edge_loss = self.edge_loss_func(edge_pred, edge_label)
-        edge_loss_as_float = edge_loss.cpu().item()
 
-        # TEST: Scaled node loss
-        return (0.7 * node_loss + 0.3 * edge_loss), node_loss_as_float, edge_loss_as_float
+        return node_loss, edge_loss

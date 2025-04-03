@@ -46,10 +46,13 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
         return MLP(**kwargs)
     raise ValueError(f'Invalid model name: {model_name}')
 
-def get_loss_func_key(model_name: str) -> str | Tuple[str, str]:
+def get_loss_func_params(model_name: str, **kwargs) -> str | Tuple[str, str]:
     if model_name == 'NodeEdgeGNN_Dual':
-        return ('l1', 'l1')
-    return 'l1'
+        return {
+            'loss_func': get_loss_func(loss_func_name='scaled_l1', scale=kwargs['water_level_weight']),
+            'edge_loss_func': get_loss_func(loss_func_name='scaled_l1', scale=kwargs['velocity_weight']),
+        }
+    return {'loss_func': get_loss_func('l1')}
 
 def trainer_factory(model_name: str, **kwargs):
     if model_name == 'NodeEdgeGNN_Dual':
@@ -105,9 +108,7 @@ def main():
         # Training
         model_key = 'NodeEdgeGNN' if args.model == 'NodeEdgeGNN_Dual' else args.model
         model_params = config['model_parameters'][model_key]
-        loss_func_key = get_loss_func_key(args.model)
         logger.log(f'Using model: {args.model}')
-        logger.log(f'Using loss function: {loss_func_key}')
 
         curr_date_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         base_model_params = {
@@ -124,12 +125,11 @@ def main():
             if event_key not in datasets:
                 raise ValueError(f'Test dataset {event_key} not found in datasets. Check your config file.')
 
-        loss_func_params = {}
-        if isinstance(loss_func_key, Tuple):
-            loss_func_params['loss_func'] = get_loss_func(loss_func_key[0])
-            loss_func_params['edge_loss_func'] = get_loss_func(loss_func_key[1])
-        else:
-            loss_func_params['loss_func'] = get_loss_func(loss_func_key)
+        # Loss function
+        loss_func_config = config['loss_func_parameters'][model_key] if model_key in config['loss_func_parameters'] else {}
+        loss_func_params = get_loss_func_params(args.model, **loss_func_config)
+        loss_func_names = [(lf.__name__ if hasattr(lf, '__name__') else type(lf).__name__) for lf in loss_func_params.values()]
+        logger.log(f"Using loss function: {', '.join(loss_func_names)}")
 
         for event_key in test_dataset_keys:
             train_datasets = [d for k, d in datasets.items() if k != event_key]

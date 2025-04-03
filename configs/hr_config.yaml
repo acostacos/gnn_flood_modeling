@@ -46,6 +46,11 @@ training_parameters:
   learning_rate   : 0.007         # learning rate
   weight_decay    : 0             # weight decay
 
+loss_func_parameters:
+  NodeEdgeGNN:
+    water_level_weight: 0.9   # Scale for water level loss
+    velocity_weight: 0.1      # Scale for velocity loss
+
 model_parameters:
   NodeEdgeGNN:
     hidden_features: 32
