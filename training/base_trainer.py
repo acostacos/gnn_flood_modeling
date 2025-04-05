@@ -45,7 +45,8 @@ class BaseTrainer:
             running_loss = 0.0
 
             len_training_samples = 0
-            for dataset in self.train_datasets:
+            for i, dataset in enumerate(self.train_datasets):
+                print(f"Training on dataset: {i}")
                 len_training_samples += len(dataset)
                 for batch in dataset:
                     self.optimizer.zero_grad()
@@ -58,6 +59,9 @@ class BaseTrainer:
                     self.optimizer.step()
 
                     running_loss += loss.cpu().item()
+
+                with torch.no_grad():
+                    torch.cuda.empty_cache()
 
             epoch_loss = running_loss / len_training_samples
             self.stats.add_train_loss(epoch_loss)
