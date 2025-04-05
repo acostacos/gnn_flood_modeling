@@ -4,7 +4,6 @@ sys.path.append('..')
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import torch
 
 from data import FloodEventDataset, InMemoryFloodEventDataset
@@ -12,12 +11,11 @@ from torch_geometric.transforms import Compose, ToUndirected
 from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, SWEGNN
 from utils import file_utils
 
-# TIMESTEP_IDX = 48 # Early 
-TIMESTEP_IDX = 384 # Late
+TIMESTEP_IDX = 152
 NORMALIZE_WITH_ENTIRE_DATASET = False
 MESH = 'lr'
-EVENT_NAME = 'lrp01'
-HEC_RAS_FILENAME = 'M01.p01.hdf'
+EVENT_NAME = 'lrp08'
+HEC_RAS_FILENAME = 'M01.p08.hdf'
 CELL_SHP_FILENAME = 'cell_centers.shp'
 LINK_SHP_FILENAME = 'links.shp'
 MODEL = 'NodeEdgeGNN_Dual'
@@ -64,15 +62,15 @@ def plot_node_flood_map(node_pred, node_ground_truth, timestep):
     node_df = gpd.read_file(cell_shp_path)
     value_column = 'water_level'
 
-    fig, ax = plt.subplots(figsize=(20,10), ncols=3)
+    fig, ax = plt.subplots(figsize=(10,3), ncols=3)
 
     cmap = plt.get_cmap('RdYlGn_r') 
     shared_plot_kwargs = {
         'cmap': cmap,
         'norm': norm,
         'column': value_column,
-        'edgecolor': 'black',
         'linewidth': 0.3,
+        'markersize': 0.5,
         'legend': True,
         'legend_kwds': {'label': "Water Level", 'orientation': "vertical"},
     }
@@ -100,16 +98,16 @@ def plot_node_flood_map(node_pred, node_ground_truth, timestep):
     diff_node_df = node_df.copy()
     diff_node_df[value_column] = node_diff
     diff_node_df.plot(ax=ax[2],
-                      cmap='seismic',
+                      cmap='Blues',
                       column=value_column,
-                      edgecolor='black',
                       linewidth=0.3,
+                      markersize=0.5,
                       legend=True,
                       legend_kwds={'label': "Difference", 'orientation': "vertical"})
     ax[2].set_title('Node Difference')
     ax[2].set_axis_off()
 
-    fig.suptitle(f"Water Level Heatmap for Mesh Nodes at timestep {timestep}", fontsize=24)
+    fig.suptitle(f"Water Level Heatmap for Mesh Nodes at timestep {timestep}", fontsize=16)
     fig.tight_layout()
     fig.savefig("plots/lr_node_flood_map.jpg", format='jpg', dpi=300, bbox_inches='tight')
 
@@ -139,11 +137,13 @@ def plot_edge_flood_map(edge_pred, edge_ground_truth, timestep):
 
     link_shp_path = f'../data/datasets/{MESH}/{EVENT_NAME}/raw/{LINK_SHP_FILENAME}'
     edge_df = gpd.read_file(link_shp_path)
+    # raw_edge_df = gpd.read_file(link_shp_path)
+    # edge_df = pd.concat([raw_edge_df, raw_edge_df], axis=0)
     value_column = 'velocity'
 
-    fig, ax = plt.subplots(figsize=(20,10), ncols=3)
+    fig, ax = plt.subplots(figsize=(10,3), ncols=3)
 
-    cmap = plt.get_cmap('RdYlGn_r') 
+    cmap = plt.get_cmap('Reds') 
     shared_plot_kwargs = {
         'cmap': cmap,
         'norm': norm,
@@ -176,7 +176,7 @@ def plot_edge_flood_map(edge_pred, edge_ground_truth, timestep):
     diff_edge_df = edge_df.copy()
     diff_edge_df[value_column] = edge_diff
     diff_edge_df.plot(ax=ax[2],
-                      cmap='seismic',
+                      cmap='Blues',
                       column=value_column,
                       linewidth=0.5,
                       legend=True,
@@ -184,7 +184,7 @@ def plot_edge_flood_map(edge_pred, edge_ground_truth, timestep):
     ax[2].set_title('Edge Difference')
     ax[2].set_axis_off()
 
-    fig.suptitle(f"Velocity Heatmap for Mesh Edges at timestep {timestep}", fontsize=24)
+    fig.suptitle(f"Velocity Heatmap for Mesh Edges at timestep {timestep}", fontsize=16)
     fig.tight_layout()
     fig.savefig("plots/lr_edge_flood_map.jpg", format='jpg', dpi=300, bbox_inches='tight')
 
@@ -239,10 +239,15 @@ def main():
     edge_ground_truth = timestep_data.y_edge
     timestep = timestep_data.timestep
 
-    # # For node prediction, show with reference to first timestep
-    # first_timestep_data = dataset[0].to(device)
-    # node_pred = node_pred - first_timestep_data.y
-    # node_ground_truth = node_ground_truth - first_timestep_data.y
+    # For node prediction, subtract elevation
+    feature_metadata_path = f"../data/feature_metadata.yaml"
+    feature_metadata = file_utils.read_yaml_file(feature_metadata_path)
+    shp_path = f'../data/datasets/{MESH}/{EVENT_NAME}/raw/{CELL_SHP_FILENAME}'
+    elevation_metadata = feature_metadata['node_features']['elevation']
+    elevation = file_utils.read_shp_file_as_numpy(filepath=shp_path, columns=elevation_metadata['column'])
+    elevation = torch.Tensor(elevation)[:, None].to(device)
+    node_pred = node_pred - elevation
+    node_ground_truth = node_ground_truth - elevation
 
     plot_node_flood_map(node_pred, node_ground_truth, timestep)
 

@@ -1,3 +1,4 @@
+import time
 import torch
 
 from pathlib import Path
@@ -18,6 +19,8 @@ class DatasetDebugHelper:
         self.logger = logger
         self.debug_features = {}
         self.debug_total_size = 0
+        self.timer_start_time = None
+        self.timer_end_time = None
 
     def print_file_paths(self, graph_metadata_path: str, feature_metadata_path: str,  dataset_info_path: str, root: str, hdf_filename: str, nodes_shp_filename: str, edges_shp_filename: str):
         self.logger('Loading data from the following files:')
@@ -104,6 +107,15 @@ class DatasetDebugHelper:
 
     def print_dataset_info_saved(self, dataset_info_path: str):
         self.logger(f'Saved dataset info to {dataset_info_path}')
+    
+    def start_timer(self):
+        self.timer_start_time = time.time()
+    
+    def end_timer(self, title: str = None):
+        self.timer_end_time = time.time()
+        elapsed_time = self.timer_end_time - self.timer_start_time
+        prefix = title or 'Time taken'
+        self.logger(f'{prefix}: {elapsed_time:.4f} seconds')
 
     def clear(self):
         self.debug_features = {}

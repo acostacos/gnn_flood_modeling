@@ -1,4 +1,5 @@
 import os
+import time
 import torch
 import numpy as np
 import h5py
@@ -160,6 +161,9 @@ class FloodEventDataset(Dataset):
         return len(self.timesteps) - 1 # Last time step is only used as a label
 
     def get(self, idx):
+        if self.debug:
+            self.debug_helper.start_timer()
+
         if idx in self.cache:
             return self.cache[idx]
 
@@ -181,6 +185,9 @@ class FloodEventDataset(Dataset):
                 if torch.is_tensor(value):
                     total_bytes += value.element_size() * value.nelement()
             self.estimated_cache_size += total_bytes
+
+        if self.debug:
+            self.debug_helper.end_timer(title='Time taken to get data point: ')
 
         return data
 

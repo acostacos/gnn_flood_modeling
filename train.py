@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import time
 import traceback
 import torch
 import yaml
@@ -94,6 +95,7 @@ def main():
         transform = Compose([ToUndirected()])
 
         datasets = {}
+        load_ds_start_time = time.time()
         for event_key, event_parameters in dataset_parameters['flood_events'].items():
             dataset = dataset_class(**event_parameters,
                         dataset_info_path=dataset_info_path,
@@ -103,6 +105,9 @@ def main():
                         transform=transform,
                         debug=args.debug)
             datasets[event_key] = DataLoader(dataset, **data_loader_params)
+        load_ds_end_time = time.time()
+        if args.debug:
+            logger.log(f"Total time to load all datasets: {load_ds_end_time - load_ds_start_time:.4f} seconds")
         dataset_info = file_utils.read_yaml_file(dataset_info_path)
 
         # Training
