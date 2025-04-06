@@ -1,4 +1,3 @@
-import gc
 import torch
 
 from torch import Tensor
@@ -34,11 +33,9 @@ class DualRegressionTrainer(BaseTrainer):
             running_edge_loss = 0.0
 
             len_training_samples = 0
-            for i, dataset in enumerate(self.train_datasets):
-                print(f"Training on dataset: {i}")
+            for dataset in self.train_datasets:
                 len_training_samples += len(dataset)
-                for j, batch in enumerate(dataset):
-                    print(f"Batch: {j}")
+                for batch in dataset:
                     self.optimizer.zero_grad()
 
                     batch = batch.to(self.device)
@@ -52,10 +49,6 @@ class DualRegressionTrainer(BaseTrainer):
                     running_loss += total_loss.cpu().item()
                     running_node_loss += node_loss.cpu().item()
                     running_edge_loss += edge_loss.cpu().item()
-
-                    gc.collect()
-                    with torch.no_grad():
-                        torch.cuda.empty_cache()
 
             epoch_loss = running_loss / len_training_samples
             epoch_node_loss = running_node_loss / len_training_samples

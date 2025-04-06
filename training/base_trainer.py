@@ -1,5 +1,4 @@
 import os
-import gc
 import torch
 import psutil
 
@@ -45,11 +44,9 @@ class BaseTrainer:
             running_loss = 0.0
 
             len_training_samples = 0
-            for i, dataset in enumerate(self.train_datasets):
-                print(f"Training on dataset: {i}")
+            for dataset in self.train_datasets:
                 len_training_samples += len(dataset)
-                for j, batch in enumerate(dataset):
-                    print(f"Batch: {j}")
+                for batch in dataset:
                     self.optimizer.zero_grad()
 
                     batch = batch.to(self.device)
@@ -60,10 +57,6 @@ class BaseTrainer:
                     self.optimizer.step()
 
                     running_loss += loss.cpu().item()
-
-                gc.collect()
-                with torch.no_grad():
-                    torch.cuda.empty_cache()
 
             epoch_loss = running_loss / len_training_samples
             self.stats.add_train_loss(epoch_loss)

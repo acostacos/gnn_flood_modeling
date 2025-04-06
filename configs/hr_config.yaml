@@ -42,7 +42,7 @@ dataset_parameters:
 
 training_parameters:
   num_epochs      : 10            # Number of epochs
-  batch_size      : 32            # Batch size
+  batch_size      : 16            # Batch size
   learning_rate   : 0.007         # learning rate
   weight_decay    : 0             # weight decay
 
