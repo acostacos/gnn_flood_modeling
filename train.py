@@ -49,7 +49,7 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
     raise ValueError(f'Invalid model name: {model_name}')
 
 def get_loss_func_params(model_name: str, **kwargs) -> str | Tuple[str, str]:
-    if model_name == 'NodeEdgeGNN_Dual':
+    if model_name == 'NodeEdgeGNN_Dual' or model_name == 'NodeEdgeGNN_NoPassing':
         return {
             'loss_func': get_loss_func(loss_func_name='scaled_l1', scale=kwargs['water_level_weight']),
             'edge_loss_func': get_loss_func(loss_func_name='scaled_l1', scale=kwargs['velocity_weight']),
