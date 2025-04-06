@@ -57,9 +57,9 @@ def get_loss_func_params(model_name: str, **kwargs) -> str | Tuple[str, str]:
     return {'loss_func': get_loss_func('l1')}
 
 def trainer_factory(model_name: str, **kwargs):
-    if model_name == 'NodeEdgeGNN_Dual':
+    if model_name == 'NodeEdgeGNN_Dual' or model_name == 'NodeEdgeGNN_NoPassing':
         return DualRegressionTrainer(mode='dual', **kwargs)
-    if model_name == 'NodeEdgeGNN' or model_name == 'NodeEdgeGNN_NoPassing':
+    if model_name == 'NodeEdgeGNN':
         return DualRegressionTrainer(mode='node', **kwargs)
     return NodeRegressionTrainer(**kwargs)
 
