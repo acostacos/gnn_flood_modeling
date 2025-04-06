@@ -4,9 +4,9 @@ from utils.model_utils import make_mlp
 
 from ..node_edge_gnn import NodeEdgeGNN
 
-class NodeEdgeGNNNoEdges(NodeEdgeGNN):
+class NodeEdgeGNNNoPassing(NodeEdgeGNN):
     '''
-    Ablation study with no edges
+    Ablation study with no Message Passing, just a simple MLP for both node and edge features.
     '''
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

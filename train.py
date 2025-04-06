@@ -7,7 +7,7 @@ import yaml
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
 from data import FloodEventDataset, InMemoryFloodEventDataset
-from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, NodeEdgeGNNNoEdges, SWEGNN
+from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, NodeEdgeGNNNoPassing, SWEGNN
 from training import NodeRegressionTrainer, DualRegressionTrainer
 from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import Compose, ToUndirected
@@ -32,8 +32,8 @@ def parse_args() -> Namespace:
 def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
     if model_name == 'NodeEdgeGNN' or model_name == 'NodeEdgeGNN_Dual':
         return NodeEdgeGNN(**kwargs)
-    if model_name == 'NodeEdgeGNN_NoEdges':
-        return NodeEdgeGNNNoEdges(**kwargs)
+    if model_name == 'NodeEdgeGNN_NoPassing':
+        return NodeEdgeGNNNoPassing(**kwargs)
     if model_name == 'SWEGNN':
         return SWEGNN(**kwargs)
     if model_name == 'GCN':
@@ -59,7 +59,7 @@ def get_loss_func_params(model_name: str, **kwargs) -> str | Tuple[str, str]:
 def trainer_factory(model_name: str, **kwargs):
     if model_name == 'NodeEdgeGNN_Dual':
         return DualRegressionTrainer(mode='dual', **kwargs)
-    if model_name == 'NodeEdgeGNN' or model_name == 'NodeEdgeGNN_NoEdges':
+    if model_name == 'NodeEdgeGNN' or model_name == 'NodeEdgeGNN_NoPassing':
         return DualRegressionTrainer(mode='node', **kwargs)
     return NodeRegressionTrainer(**kwargs)
 
@@ -89,9 +89,9 @@ def main():
         dataset_class = FloodEventDataset if storage_mode == 'disk' else InMemoryFloodEventDataset
         data_loader_params = {
             'batch_size': train_config['batch_size'],
-            'pin_memory': True,
-            'num_workers': 2,
-            'persistent_workers': True,
+            # 'pin_memory': True,
+            # 'num_workers': 2,
+            # 'persistent_workers': True,
         }
         transform = Compose([ToUndirected()])
 
@@ -108,7 +108,7 @@ def main():
         dataset_info = file_utils.read_yaml_file(dataset_info_path)
 
         # Training
-        model_key = 'NodeEdgeGNN' if args.model in ['NodeEdgeGNN_Dual', 'NodeEdgeGNN_NoEdges'] else args.model
+        model_key = 'NodeEdgeGNN' if args.model in ['NodeEdgeGNN_Dual', 'NodeEdgeGNN_NoPassing'] else args.model
         model_params = config['model_parameters'][model_key]
         logger.log(f'Using model: {args.model}')
 
