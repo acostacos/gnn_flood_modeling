@@ -137,6 +137,10 @@ def main():
             logger.log(f"Training with {', '.join([k for k in datasets.keys() if k != event_key])}. Testing on {event_key}.")
             model = model_factory(args.model, **model_params, **base_model_params)
 
+            if args.debug:
+                num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+                logger.log(f'Number of trainable model parameters: {num_train_params}')
+
             optimizer = torch.optim.Adam(model.parameters(), lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
             trainer = trainer_factory(args.model, train_datasets=train_datasets, val_dataset=test_dataset, model=model,
                                             optimizer=optimizer, num_epochs=train_config['num_epochs'],
