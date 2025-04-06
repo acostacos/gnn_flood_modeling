@@ -60,6 +60,7 @@ class BaseTrainer:
 
                     running_loss += loss.cpu().item()
 
+                gc.collect()
                 with torch.no_grad():
                     torch.cuda.empty_cache()
 
@@ -117,5 +118,3 @@ class BaseTrainer:
         gpu_cached = torch.cuda.memory_reserved()
         self.log(f"\tGPU Allocated: {convert_utils.bytes_to_gb(gpu_allocated)}GB")
         self.log(f"\tGPU Cached: {convert_utils.bytes_to_gb(gpu_cached)}GB")
-
-        gc.collect()

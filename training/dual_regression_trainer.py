@@ -1,3 +1,4 @@
+import gc
 import torch
 
 from torch import Tensor
@@ -51,6 +52,7 @@ class DualRegressionTrainer(BaseTrainer):
                     running_node_loss += node_loss.cpu().item()
                     running_edge_loss += edge_loss.cpu().item()
 
+                gc.collect()
                 with torch.no_grad():
                     torch.cuda.empty_cache()
 
