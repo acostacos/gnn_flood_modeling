@@ -37,7 +37,8 @@ class DualRegressionTrainer(BaseTrainer):
             for i, dataset in enumerate(self.train_datasets):
                 print(f"Training on dataset: {i}")
                 len_training_samples += len(dataset)
-                for batch in dataset:
+                for j, batch in enumerate(dataset):
+                    print(f"Batch: {j}")
                     self.optimizer.zero_grad()
 
                     batch = batch.to(self.device)
@@ -52,9 +53,9 @@ class DualRegressionTrainer(BaseTrainer):
                     running_node_loss += node_loss.cpu().item()
                     running_edge_loss += edge_loss.cpu().item()
 
-                gc.collect()
-                with torch.no_grad():
-                    torch.cuda.empty_cache()
+                    gc.collect()
+                    with torch.no_grad():
+                        torch.cuda.empty_cache()
 
             epoch_loss = running_loss / len_training_samples
             epoch_node_loss = running_node_loss / len_training_samples

@@ -48,7 +48,8 @@ class BaseTrainer:
             for i, dataset in enumerate(self.train_datasets):
                 print(f"Training on dataset: {i}")
                 len_training_samples += len(dataset)
-                for batch in dataset:
+                for j, batch in enumerate(dataset):
+                    print(f"Batch: {j}")
                     self.optimizer.zero_grad()
 
                     batch = batch.to(self.device)
