@@ -60,7 +60,7 @@ class DualRegressionTrainer(BaseTrainer):
             self.log(f'\tEdge Loss: {epoch_edge_loss:.4f}')
             self.log(f'\tTotal Loss: {epoch_loss:.4f}')
 
-            if self.debug and epoch > 0 and epoch % 5 == 0:
+            if self.debug:
                 self.print_memory_usage(epoch)
 
         additional_info = f'Final Node Loss: {epoch_node_loss:.4f}, Final Edge Loss: {epoch_edge_loss:.4f}'

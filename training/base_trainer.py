@@ -62,7 +62,7 @@ class BaseTrainer:
             self.stats.add_train_loss(epoch_loss)
             self.log(f'Epoch [{epoch + 1}/{self.num_epochs}], Training Loss: {epoch_loss:.4f}')
 
-            if self.debug and epoch > 0 and epoch % 5 == 0:
+            if self.debug:
                 self.print_memory_usage(epoch)
 
         self.stats.end_train()
@@ -97,7 +97,7 @@ class BaseTrainer:
 
     def get_stats(self):
         return self.stats
-    
+
     def print_memory_usage(self, epoch: int):
         self.log(f'Usage Statistics (epoch {epoch+1}): ')
         process = psutil.Process(os.getpid())
@@ -108,7 +108,12 @@ class BaseTrainer:
         num_cores = psutil.cpu_count()
         self.log(f"\tNum CPU Cores:  {num_cores} cores")
 
+        gpu_usage = torch.cuda.mem_get_info()
+        free = convert_utils.bytes_to_gb(gpu_usage[0])
+        total = convert_utils.bytes_to_gb(gpu_usage[1])
+        self.log(f"\tGPU Usage: {free}GB / {total}GB")
+
         gpu_allocated = torch.cuda.memory_allocated()
         gpu_cached = torch.cuda.memory_reserved()
-        self.log(f"\tGPU Allocated: {convert_utils.bytes_to_gb(gpu_allocated)}GB")
-        self.log(f"\tGPU Cached: {convert_utils.bytes_to_gb(gpu_cached)}GB")
+        self.log(f"\tCUDA GPU Allocated: {convert_utils.bytes_to_gb(gpu_allocated)}GB")
+        self.log(f"\tCUDA GPU Cached: {convert_utils.bytes_to_gb(gpu_cached)}GB")
