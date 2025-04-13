@@ -128,6 +128,17 @@ model_parameters:
     decoder_layers: 2
     decoder_activation: 'prelu'
 
+  GNNNoPassing:
+    hidden_features: 32
+    num_layers: 2
+    activation: 'prelu'
+    residual: True
+    mlp_layers: 2
+    encoder_layers: 2
+    encoder_activation: 'prelu'
+    decoder_layers: 2
+    decoder_activation: 'prelu'
+
   EdgeGNN:
     hidden_features: 32
     num_layers: 1

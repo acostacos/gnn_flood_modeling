@@ -7,10 +7,9 @@ import yaml
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
 from data import FloodEventDataset, InMemoryFloodEventDataset
-from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, NodeEdgeGNNNoPassing, SWEGNN
+from models import GAT, GCN, GraphSAGE, GIN, GNNNoPassing, MLP, NodeEdgeGNN, NodeEdgeGNNNoPassing, SWEGNN
 from training import NodeRegressionTrainer, DualRegressionTrainer
 from torch_geometric.loader import DataLoader
-from torch_geometric.transforms import Compose, ToUndirected
 from typing import Tuple
 from utils import Logger, file_utils
 from utils.loss_func_utils import get_loss_func
@@ -44,6 +43,8 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
         return GIN(**kwargs)
     if model_name == 'GraphSAGE':
         return GraphSAGE(**kwargs)
+    if model_name == 'GNNNoPassing':
+        return GNNNoPassing(**kwargs)
     if model_name == 'MLP':
         return MLP(**kwargs)
     raise ValueError(f'Invalid model name: {model_name}')
@@ -93,7 +94,6 @@ def main():
             # 'num_workers': 2,
             # 'persistent_workers': True,
         }
-        transform = Compose([ToUndirected()])
 
         datasets = {}
         for event_key, event_parameters in dataset_parameters['flood_events'].items():
@@ -102,7 +102,6 @@ def main():
                         previous_timesteps=dataset_parameters['previous_timesteps'],
                         node_features=dataset_parameters['node_features'],
                         edge_features=dataset_parameters['edge_features'],
-                        transform=transform,
                         debug=args.debug)
             datasets[event_key] = DataLoader(dataset, **data_loader_params)
         dataset_info = file_utils.read_yaml_file(dataset_info_path)
