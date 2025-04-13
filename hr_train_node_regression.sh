@@ -13,6 +13,7 @@ srun python train.py --model 'GCN' --config_path='configs/hr_config.yaml' --log_
 srun python train.py --model 'GAT' --config_path='configs/hr_config.yaml' --log_path 'logs/hr/hr_gat.log' --model_dir 'saved_models/hr/gat' --seed 42
 srun python train.py --model 'GIN' --config_path='configs/hr_config.yaml' --log_path 'logs/hr/hr_gin.log' --model_dir 'saved_models/hr/gin' --seed 42
 srun python train.py --model 'GraphSAGE' --config_path='configs/hr_config.yaml' --log_path 'logs/hr/hr_sage.log' --model_dir 'saved_models/hr/sage' --seed 42
+srun python train.py --model 'GNNNoPassing' --config_path='configs/hr_config.yaml' --log_path 'logs/hr/hr_nopass.log' --model_dir 'saved_models/hr/nopass' --seed 42
 srun python train.py --model 'NodeEdgeGNN' --config_path='configs/hr_config.yaml' --log_path 'logs/hr/hr_nodeedge.log' --model_dir 'saved_models/hr/nodeedge' --seed 42
 srun python train.py --model 'NodeEdgeGNN_Dual' --config_path='configs/hr_config.yaml' --log_path 'logs/hr/hr_nodeedge_dual.log' --model_dir 'saved_models/hr/nodeedge_dual' --seed 42
 srun python train.py --model 'NodeEdgeGNN_NoPassing' --config_path='configs/hr_config.yaml' --log_path 'logs/hr/hr_nodeedge_nopass.log' --model_dir 'saved_models/hr/nodeedge_nopass' --seed 42
