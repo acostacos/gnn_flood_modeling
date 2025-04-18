@@ -10,7 +10,7 @@ from data import FloodEventDataset, InMemoryFloodEventDataset
 from models import GAT, GCN, GraphSAGE, GIN, GNNNoPassing, MLP, NodeEdgeGNN, NodeEdgeGNNNoPassing, SWEGNN
 from training import NodeRegressionTrainer, DualRegressionTrainer
 from torch_geometric.loader import DataLoader
-from typing import Tuple
+from typing import Callable
 from utils import Logger, file_utils
 from utils.loss_func_utils import get_loss_func
 
@@ -49,13 +49,10 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
         return MLP(**kwargs)
     raise ValueError(f'Invalid model name: {model_name}')
 
-def get_loss_func_params(model_name: str, **kwargs) -> str | Tuple[str, str]:
+def get_loss_func_param(model_name: str, **kwargs) -> Callable | torch.nn.Module:
     if model_name == 'NodeEdgeGNN_Dual' or model_name == 'NodeEdgeGNN_NoPassing':
-        return {
-            'loss_func': get_loss_func(loss_func_name='scaled_l1', scale=kwargs['water_level_weight']),
-            'edge_loss_func': get_loss_func(loss_func_name='scaled_l1', scale=kwargs['velocity_weight']),
-        }
-    return {'loss_func': get_loss_func('l1')}
+        return get_loss_func(loss_func_name='combined_l1', **kwargs)
+    return get_loss_func('l1')
 
 def trainer_factory(model_name: str, **kwargs):
     if model_name == 'NodeEdgeGNN_Dual' or model_name == 'NodeEdgeGNN_NoPassing':
@@ -128,9 +125,9 @@ def main():
 
         # Loss function
         loss_func_config = config['loss_func_parameters'][model_key] if model_key in config['loss_func_parameters'] else {}
-        loss_func_params = get_loss_func_params(args.model, **loss_func_config)
-        loss_func_names = [(lf.__name__ if hasattr(lf, '__name__') else type(lf).__name__) for lf in loss_func_params.values()]
-        logger.log(f"Using loss function: {', '.join(loss_func_names)}")
+        loss_func = get_loss_func_param(args.model, **loss_func_config)
+        loss_func_name = loss_func.__name__ if hasattr(loss_func, '__name__') else loss_func.__class__.__name__
+        logger.log(f"Using loss function: {loss_func_name}")
 
         for event_key in test_dataset_keys:
             train_datasets = [d for k, d in datasets.items() if k != event_key]
@@ -144,8 +141,8 @@ def main():
 
             optimizer = torch.optim.Adam(model.parameters(), lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
             trainer = trainer_factory(args.model, train_datasets=train_datasets, val_dataset=test_dataset, model=model,
-                                            optimizer=optimizer, num_epochs=train_config['num_epochs'],
-                                            device=args.device, debug=args.debug, logger=logger, **loss_func_params)
+                                            loss_func=loss_func, optimizer=optimizer, num_epochs=train_config['num_epochs'],
+                                            device=args.device, debug=args.debug, logger=logger)
             trainer.train()
             trainer.validate()
             stats = trainer.get_stats()

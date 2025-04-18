@@ -48,8 +48,8 @@ training_parameters:
 
 loss_func_parameters:
   NodeEdgeGNN:
-    water_level_weight: 0.9   # Scale for water level loss
-    velocity_weight: 0.1      # Scale for velocity loss
+    node_weight: 0.9      # Scale for water level loss
+    edge_weight: 0.1      # Scale for velocity loss
 
 model_parameters:
   NodeEdgeGNN:
