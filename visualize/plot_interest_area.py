@@ -3,6 +3,7 @@ sys.path.append('..')
 
 import torch
 
+from train import model_factory
 from data import FloodEventDataset, InMemoryFloodEventDataset
 from torch_geometric.transforms import Compose, ToUndirected
 from utils import file_utils
