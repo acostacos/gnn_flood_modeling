@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
+from train import model_factory
 from data import FloodEventDataset, InMemoryFloodEventDataset
 from torch_geometric.transforms import Compose, ToUndirected
-from models import GAT, GCN, GraphSAGE, GIN, MLP, NodeEdgeGNN, SWEGNN
 from utils import file_utils
 
 TIMESTEP_IDX = 152
@@ -20,23 +20,6 @@ CELL_SHP_FILENAME = 'cell_centers.shp'
 LINK_SHP_FILENAME = 'links.shp'
 MODEL = 'NodeEdgeGNN_Dual'
 SAVED_MODEL_PATH = '../saved_models/nodeedge_dual/NodeEdgeGNN_Dual_lrp01_2025-03-30_21-22-59.pt'
-
-def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
-    if model_name == 'NodeEdgeGNN' or model_name == 'NodeEdgeGNN_Dual':
-        return NodeEdgeGNN(**kwargs)
-    if model_name == 'SWEGNN':
-        return SWEGNN(**kwargs)
-    if model_name == 'GCN':
-        return GCN(**kwargs)
-    if model_name == 'GAT':
-        return GAT(**kwargs)
-    if model_name == 'GIN':
-        return GIN(**kwargs)
-    if model_name == 'GraphSAGE':
-        return GraphSAGE(**kwargs)
-    if model_name == 'MLP':
-        return MLP(**kwargs)
-    raise ValueError(f'Invalid model name: {model_name}')
 
 
 def plot_node_flood_map(node_pred, node_ground_truth, timestep):
