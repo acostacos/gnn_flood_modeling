@@ -5,7 +5,6 @@ import torch
 
 from train import model_factory
 from data import FloodEventDataset, InMemoryFloodEventDataset
-from torch_geometric.transforms import Compose, ToUndirected
 from utils import file_utils
 
 TIMESTEP_IDX = 152
@@ -31,13 +30,11 @@ def main():
     event_parameters['root_dir'] = f"../{event_parameters['root_dir']}"
 
     dataset_class = FloodEventDataset if storage_mode == 'disk' else InMemoryFloodEventDataset
-    transform = Compose([ToUndirected()])
     dataset = dataset_class(**event_parameters,
                 dataset_info_path=dataset_info_path,
                 previous_timesteps=dataset_parameters['previous_timesteps'],
                 node_features=dataset_parameters['node_features'],
-                edge_features=dataset_parameters['edge_features'],
-                transform=transform)
+                edge_features=dataset_parameters['edge_features'])
     dataset_info = file_utils.read_yaml_file(dataset_info_path)
 
     # Initialize model

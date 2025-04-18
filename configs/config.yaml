@@ -33,8 +33,8 @@ dataset_parameters:
     water_level   : True    # Water level at each node
 
   edge_features:
-    direction_x   : True    # Link direction along x-axis
-    direction_y   : True    # Link direction along y-axis
+    direction_x   : False   # Link direction along x-axis
+    direction_y   : False   # Link direction along y-axis
     face_length   : True    # Link face length
     length        : True    # Link length
     slope         : True    # Link slope

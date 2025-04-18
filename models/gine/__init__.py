@@ -1,1 +1,0 @@
-# All files taken from https://github.com/snap-stanford/pretrain-gnns/tree/master
