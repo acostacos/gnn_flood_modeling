@@ -51,7 +51,7 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
 
 def get_loss_func_param(model_name: str, **kwargs) -> Callable | torch.nn.Module:
     if model_name == 'NodeEdgeGNN_Dual' or model_name == 'NodeEdgeGNN_NoPassing':
-        return get_loss_func(loss_func_name='combined_l1', **kwargs)
+        return get_loss_func(loss_func_name='mass_conservation_l1', **kwargs)
     return get_loss_func('l1')
 
 def trainer_factory(model_name: str, **kwargs):
