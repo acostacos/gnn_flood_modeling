@@ -188,7 +188,8 @@ def main():
                 dataset_info_path=dataset_info_path,
                 previous_timesteps=dataset_parameters['previous_timesteps'],
                 node_features=dataset_parameters['node_features'],
-                edge_features=dataset_parameters['edge_features'])
+                edge_features=dataset_parameters['edge_features'],
+                normalize=dataset_parameters['normalize'])
     dataset_info = file_utils.read_yaml_file(dataset_info_path)
 
     # Initialize model

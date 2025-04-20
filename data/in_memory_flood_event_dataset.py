@@ -1,9 +1,7 @@
 import os
 import torch
 import numpy as np
-import pickle
 
-from datetime import datetime
 from pathlib import Path
 from torch import Tensor
 from torch_geometric.data import InMemoryDataset, Data
@@ -29,6 +27,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
                  previous_timesteps: int = 0,
                  node_features: dict[str, bool] = {},
                  edge_features: dict[str, bool] = {},
+                 normalize: bool = False,
                  debug: bool = False,
                  logger: Logger = None,
                  transform=None,
@@ -51,6 +50,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
         self.hdf_file = hec_ras_hdf_file
         self.nodes_shp_file = nodes_shp_file
         self.edges_shp_file = edges_shp_file
+        self.normalize = normalize
 
         if self.debug:
             self.debug_helper.print_file_paths(self.graph_metadata_path, self.feature_metadata_path, self.dataset_info_path, root_dir, self.hdf_file, self.nodes_shp_file, self.edges_shp_file)
@@ -66,6 +66,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
             'num_static_edge_features': 0,
             'num_dynamic_edge_features': 0,
             'previous_timesteps': previous_timesteps,
+            'is_normalized': normalize,
         }
 
         # Set features to load
@@ -193,7 +194,8 @@ class InMemoryFloodEventDataset(InMemoryDataset):
         
         if (set(dataset_info[FEATURE_CLASS_NODE]) != set(self.dataset_info[FEATURE_CLASS_NODE])
             or set(dataset_info[FEATURE_CLASS_EDGE]) != set(self.dataset_info[FEATURE_CLASS_EDGE])
-            or dataset_info['previous_timesteps'] != self.dataset_info['previous_timesteps']):
+            or dataset_info['previous_timesteps'] != self.dataset_info['previous_timesteps']
+            or dataset_info['is_normalized'] != self.dataset_info['is_normalized']):
             raise ValueError(f'Dataset features are inconsistent with previously loaded datasets. See {self.dataset_info_path}')
 
     def _get_graph_properties(self) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -231,6 +233,9 @@ class InMemoryFloodEventDataset(InMemoryDataset):
         static_features, dynamic_features = self._format_features(features)
         if self.debug:
             self.debug_helper.print_loaded_features(feature_class, static_features, dynamic_features)
+        
+        if self.normalize:
+            static_features, dynamic_features = self._normalize_features(static_features, dynamic_features)
 
         return static_features, dynamic_features
 
@@ -255,6 +260,13 @@ class InMemoryFloodEventDataset(InMemoryDataset):
 
         return static_features, dynamic_features
     
+    def _normalize_features(self, static_features: torch.Tensor, dynamic_features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Z-score normalization of features"""
+        EPS = 1e-7 # Prevent division by zero
+        new_static_features = (static_features - static_features.mean(dim=0)) / (static_features.std(dim=0) + EPS)
+        new_dynamic_features = (dynamic_features - dynamic_features.mean(dim=1, keepdim=True)) / (dynamic_features.std(dim=1, keepdim=True) + EPS)
+        return new_static_features, new_dynamic_features
+
     def _get_timestep_data(self, timestep_idx: int, static_features: Tensor, dynamic_features: Tensor) -> Tensor:
         """Returns the data for a specific timestep in the format [static_features, previous_dynamic_features, current_dynamic_features]"""
 

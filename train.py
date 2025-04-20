@@ -51,7 +51,7 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
 
 def get_loss_func_param(model_name: str, **kwargs) -> Callable | torch.nn.Module:
     if model_name == 'NodeEdgeGNN_Dual' or model_name == 'NodeEdgeGNN_NoPassing':
-        return get_loss_func(loss_func_name='mass_conservation_l1', **kwargs)
+        return get_loss_func(loss_func_name='combined_l1', **kwargs)
     return get_loss_func('l1')
 
 def trainer_factory(model_name: str, **kwargs):
@@ -99,6 +99,7 @@ def main():
                         previous_timesteps=dataset_parameters['previous_timesteps'],
                         node_features=dataset_parameters['node_features'],
                         edge_features=dataset_parameters['edge_features'],
+                        normalize=dataset_parameters['normalize'],
                         debug=args.debug)
             datasets[event_key] = DataLoader(dataset, **data_loader_params)
         dataset_info = file_utils.read_yaml_file(dataset_info_path)

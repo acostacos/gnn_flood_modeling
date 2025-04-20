@@ -1,6 +1,7 @@
 dataset_parameters:
   storage_mode: 'memory' # 'memory' or 'disk'
   previous_timesteps: 2
+  normalize: True
   dataset_info_path: 'data/datasets/hr/dataset_info.yaml'
 
   flood_events:
@@ -48,8 +49,8 @@ training_parameters:
 
 loss_func_parameters:
   NodeEdgeGNN:
-    node_weight: 0.9      # Scale for water level loss
-    edge_weight: 0.1      # Scale for velocity loss
+    node_weight: 0.5      # Scale for water level loss
+    edge_weight: 0.5      # Scale for velocity loss
 
 model_parameters:
   NodeEdgeGNN:
