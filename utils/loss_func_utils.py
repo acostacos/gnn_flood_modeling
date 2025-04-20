@@ -48,7 +48,9 @@ class MassConservationL1Loss(CombinedL1Loss):
         in_total_fl_times_v = scatter(fl_times_v, edge_index[1], reduce='sum', dim_size=num_nodes)
         in_total_flux = in_total_fl_times_v * water_level
 
-        mc_loss = (in_total_flux + volume - out_total_flux).sum() # Want this to be zero
+        mc_per_node = in_total_flux + volume - out_total_flux # This should be zero for mass conservation
+        mc_per_node = (mc_per_node - mc_per_node.mean()) / mc_per_node.std() # JUST FOR TESTING
+        mc_loss = mc_per_node.sum()
 
         return combined_l1_loss + mc_loss
 

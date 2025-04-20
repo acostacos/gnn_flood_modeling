@@ -1,23 +1,30 @@
 import sys
 sys.path.append('..')
 
+import numpy as np
 import torch
 
 from train import model_factory
 from data import FloodEventDataset, InMemoryFloodEventDataset
 from utils import file_utils
+from utils.loss_func_utils import get_loss_func
 
-TIMESTEP_IDX = 152
-NORMALIZE_WITH_ENTIRE_DATASET = False
+from plot_constants import WOLLOMBI_LR_INTEREST_AREA_NODES
+
 MESH = 'lr'
-EVENT_NAME = 'lrp08'
-HEC_RAS_FILENAME = 'M01.p08.hdf'
-CELL_SHP_FILENAME = 'cell_centers.shp'
-LINK_SHP_FILENAME = 'links.shp'
-MODEL = 'NodeEdgeGNN_Dual'
-SAVED_MODEL_PATH = '../saved_models/nodeedge_dual/NodeEdgeGNN_Dual_lrp01_2025-03-30_21-22-59.pt'
+EVENT_NAME = 'lrp01'
+MODEL = 'GCN'
+SAVED_MODEL_PATH = '../saved_models/gcn/GCN_lrp01_2025-04-17_16-02-34.pt'
+
+def get_interest_area_mask():
+    flattened = np.array(WOLLOMBI_LR_INTEREST_AREA_NODES).flatten().tolist()
+    mask = list(set(flattened))
+    return mask
 
 def main():
+    np.random.seed(42)
+    torch.manual_seed(42)
+
     config_path = f"../configs/{f'{MESH}_' if MESH != 'init' else ''}config.yaml"
     config = file_utils.read_yaml_file(config_path)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -54,16 +61,34 @@ def main():
     model.load_state_dict(torch.load(SAVED_MODEL_PATH, weights_only=True))
 
     # Perform inference for 1 timestep
-    timestep_data = dataset[TIMESTEP_IDX]
+    loss_func = get_loss_func('l1') # For now use L1 loss
 
     model.eval()
+
+    total_running_loss = 0.0
+    aoi_running_loss = 0.0
+    aoi_mask = get_interest_area_mask()
+
+    len_dataset = len(dataset)
     with torch.no_grad():
-        timestep_data = timestep_data.to(device)
-        node_pred, edge_pred = model(timestep_data)
-    
-    node_ground_truth = timestep_data.y
-    edge_ground_truth = timestep_data.y_edge
-    timestep = timestep_data.timestep
+        for batch in dataset:
+            batch = batch.to(device)
+            output = model(batch)
+
+            if MODEL == 'NodeEdgeGNN':
+                output = output[0]
+
+            label = batch.y
+
+            total_running_loss += loss_func(output, label).item()
+            aoi_running_loss += loss_func(output[aoi_mask], label[aoi_mask]).item()
+
+    total_avg_loss = total_running_loss  / len_dataset
+    aoi_avg_loss = aoi_running_loss / len_dataset
+    print(f'Total Validtion Loss (Interest Area): {aoi_avg_loss:.4f}')
+    print(f'Total Validation Loss: {total_avg_loss:.4f}')
+    percentage_loss = (aoi_avg_loss / total_avg_loss) * 100
+    print(f'Percentage of Interest Area Loss: {percentage_loss:.2f}%')
 
 if __name__ == "__main__":
     main()
