@@ -55,7 +55,7 @@ loss_func_parameters:
 model_parameters:
   NodeEdgeGNN:
     hidden_features: 32
-    num_layers: 2
+    num_layers: 8
     activation: 'prelu'
     residual: True
     mlp_layers: 2

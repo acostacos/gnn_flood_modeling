@@ -163,11 +163,6 @@ class SWEGNNProcessor(Module):
                                 hidden_size=edge_hidden_size, num_layers=mlp_layers,
                                 activation=mlp_activation, bias=True, device=device)
 
-        self.filter_matrix = ModuleList([
-            make_mlp(input_size=dynamic_node_features, output_size=dynamic_node_features,
-                     bias=False, device=device) for _ in range(K+1)
-        ])
-
         filter_input_size = dynamic_node_features if encoded else (dynamic_node_features * (previous_timesteps+1))
         self.filter_matrix = ModuleList(
             [
