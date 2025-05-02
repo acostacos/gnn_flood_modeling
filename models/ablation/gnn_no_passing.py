@@ -4,7 +4,7 @@ from torch_geometric.data import Data
 from torch_geometric.nn import MessagePassing, Sequential as PygSequential
 from utils.model_utils import make_mlp, get_activation_func
 
-from .base_model import BaseModel
+from ..base_model import BaseModel
 
 class GNNNoPassing(BaseModel):
     '''
