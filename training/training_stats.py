@@ -36,8 +36,8 @@ class TrainingStats:
             self.log(f'Final training Loss: {self.train_epoch_loss[-1]:.4f}')
             np_epoch_loss = np.array(self.train_epoch_loss)
             self.log(f'Average training Loss: {np_epoch_loss.mean():.4f}')
-            self.log(f'Minimum training Loss: {np_epoch_loss.max():.4f}')
-            self.log(f'Maximum training Loss: {np_epoch_loss.min():.4f}')
+            self.log(f'Minimum training Loss: {np_epoch_loss.min():.4f}')
+            self.log(f'Maximum training Loss: {np_epoch_loss.max():.4f}')
 
         if self.train_start_time is not None and self.train_end_time is not None:
             self.log(f'Total training time: {self.get_train_time():.4f} seconds')

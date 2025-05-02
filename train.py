@@ -22,11 +22,11 @@ def parse_args() -> Namespace:
     parser.add_argument('--config_path', type=str, default='configs/config.yaml', help='Path to training config file')
     parser.add_argument("--model", type=str, default='NodeEdgeGNN', help='Model to use for training')
     parser.add_argument('--test_datasets', nargs='+', type=str, default=None, help='List of datasets to test with. The rest will only be used for training.')
-    parser.add_argument("--debug", type=bool, default=False, help='Add debug messages to output')
     parser.add_argument("--seed", type=int, default=42, help='Seed for random number generators')
     parser.add_argument("--device", type=str, default=('cuda' if torch.cuda.is_available() else 'cpu'), help='Device to run on')
     parser.add_argument("--log_path", type=str, default=None, help='Path to log file')
     parser.add_argument("--model_dir", type=str, default='saved_models', help='Path to directory to save trained models')
+    parser.add_argument("--debug", type=bool, default=False, help='Add debug messages to output')
     return parser.parse_args()
 
 def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
@@ -100,7 +100,7 @@ def main():
         dataset_info = file_utils.read_yaml_file(dataset_info_path)
 
         # Training
-        model_key = 'NodeEdgeGNN' if args.model in ['NodeEdgeGNN_Dual', 'NodeEdgeGNN_NoPassing'] else args.model
+        model_key = 'NodeEdgeGNN' if args.model in ['NodeEdgeGNN_NoPassing'] else args.model
         model_params = config['model_parameters'][model_key]
         logger.log(f'Using model: {args.model}')
 
