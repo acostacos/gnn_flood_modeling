@@ -17,15 +17,12 @@ FEATURE_TYPE_DYNAMIC = "dynamic"
 class DatasetDebugHelper:
     def __init__(self, logger: Callable):
         self.logger = logger
-        self.debug_features = {}
         self.debug_total_size = 0
         self.timer_start_time = None
         self.timer_end_time = None
 
-    def print_file_paths(self, graph_metadata_path: str, feature_metadata_path: str,  dataset_info_path: str, root: str, hdf_filename: str, nodes_shp_filename: str, edges_shp_filename: str):
+    def print_file_paths(self, dataset_info_path: str, root: str, hdf_filename: str, nodes_shp_filename: str, edges_shp_filename: str):
         self.logger('Loading data from the following files:')
-        self.logger(f'\tGraph Metadata Filepath: {graph_metadata_path}')
-        self.logger(f'\tFeature Metadata Filepath: {feature_metadata_path}')
         self.logger(f'\tDataset Info Filepath: {dataset_info_path}')
         self.logger(f'\tHEC-RAS HDF Filename: {Path(root) / hdf_filename}')
         self.logger(f'\tNodes SHP Filepath: {Path(root) / nodes_shp_filename}')
@@ -42,12 +39,25 @@ class DatasetDebugHelper:
         if pos is not None:
             self.logger(f'\tPos: {pos.shape}')
 
-    def assign_features(self, feature_class: str, feature_type: str, name: str, data: Tensor):
-        if feature_class not in self.debug_features:
-            self.debug_features[feature_class] = {}
-        if feature_type not in self.debug_features[feature_class]:
-            self.debug_features[feature_class][feature_type] = {}
-        self.debug_features[feature_class][feature_type][name] = data
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def print_loaded_features(self, feature_class: str, static_features: Tensor, dynamic_features: Tensor):
         self.logger(f'Successfully loaded for {feature_class}:')
@@ -118,5 +128,4 @@ class DatasetDebugHelper:
         self.logger(f'{prefix}: {elapsed_time:.4f} seconds')
 
     def clear(self):
-        self.debug_features = {}
         self.debug_total_size = 0

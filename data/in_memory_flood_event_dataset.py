@@ -5,17 +5,14 @@ import numpy as np
 from pathlib import Path
 from torch import Tensor
 from torch_geometric.data import InMemoryDataset, Data
-from typing import Tuple, List, Dict
+from typing import Callable, Tuple, List, Dict, Literal
 from utils import file_utils, Logger
 
 from .dataset_debug_helper import DatasetDebugHelper
-from .feature_transform import TRANSFORM_MAP, byte_to_timestamp, to_torch_tensor_w_transpose
-
-FEATURE_CLASS_NODE = "node_features"
-FEATURE_CLASS_EDGE = "edge_features"
-
-FEATURE_TYPE_STATIC = "static"
-FEATURE_TYPE_DYNAMIC = "dynamic"
+from .feature_transform import to_torch_tensor_w_transpose
+from .hecras_data_retrieval import get_event_timesteps, get_cell_area, get_roughness, get_rainfall, get_water_level,\
+                                    get_edge_direction_x, get_edge_direction_y, get_face_length, get_velocity
+from .shp_data_retrieval import get_edge_index, get_cell_elevation, get_edge_length, get_edge_slope
 
 class InMemoryFloodEventDataset(InMemoryDataset):
     def __init__(self,
@@ -25,8 +22,8 @@ class InMemoryFloodEventDataset(InMemoryDataset):
                  nodes_shp_file: str,
                  edges_shp_file: str,
                  previous_timesteps: int = 0,
-                 node_features: dict[str, bool] = {},
-                 edge_features: dict[str, bool] = {},
+                 node_feat_config: dict[str, bool] = {},
+                 edge_feat_config: dict[str, bool] = {},
                  normalize: bool = False,
                  debug: bool = False,
                  logger: Logger = None,
@@ -37,27 +34,27 @@ class InMemoryFloodEventDataset(InMemoryDataset):
         log = print
         if logger is not None and hasattr(logger, 'log'):
             log = logger.log
-        
+
         self.debug = debug
         if self.debug:
             self.debug_helper = DatasetDebugHelper(log)
 
         # Set file paths to load data from
-        current_dir = Path(__file__).parent
-        self.graph_metadata_path = current_dir / 'graph_metadata.yaml'
-        self.feature_metadata_path = current_dir / 'feature_metadata.yaml'
         self.dataset_info_path = dataset_info_path
         self.hdf_file = hec_ras_hdf_file
         self.nodes_shp_file = nodes_shp_file
         self.edges_shp_file = edges_shp_file
         self.normalize = normalize
-
         if self.debug:
-            self.debug_helper.print_file_paths(self.graph_metadata_path, self.feature_metadata_path, self.dataset_info_path, root_dir, self.hdf_file, self.nodes_shp_file, self.edges_shp_file)
+            self.debug_helper.print_file_paths(self.dataset_info_path, root_dir, self.hdf_file, self.nodes_shp_file, self.edges_shp_file)
+
+        # Set features to load
+        self.node_feature_list = self._get_feature_list(node_feat_config)
+        self.edge_feature_list = self._get_feature_list(edge_feat_config)
+        self._enforce_dataset_consistency()
 
         # Initialize dataset variables
         self.previous_timesteps = previous_timesteps
-        self.timesteps = self._get_event_timesteps(root_dir)
         self.dataset_info = {
             'node_features': [],
             'edge_features': [],
@@ -68,13 +65,6 @@ class InMemoryFloodEventDataset(InMemoryDataset):
             'previous_timesteps': previous_timesteps,
             'is_normalized': normalize,
         }
-
-        # Set features to load
-        included_features = {}
-        included_features[FEATURE_CLASS_NODE] = self._get_feature_list(node_features)
-        included_features[FEATURE_CLASS_EDGE] = self._get_feature_list(edge_features)
-        self.feature_metadata = self._get_feature_metadata(included_features)
-        self._enforce_dataset_consistency()
 
         super().__init__(root_dir, transform, pre_transform, pre_filter, log=debug)
 
@@ -89,18 +79,21 @@ class InMemoryFloodEventDataset(InMemoryDataset):
         return ['complete_data.pt']
 
     def download(self):
+        # Data must be downloaded manually and placed in the raw_dir
         pass
 
     def process(self):
-        edge_index = self._get_graph_properties()
-        static_nodes, dynamic_nodes = self._get_features(FEATURE_CLASS_NODE)
-        static_edges, dynamic_edges = self._get_features(FEATURE_CLASS_EDGE)
+        timesteps, edge_index = self._get_graph_properties()
+        static_nodes = self._get_static_node_features()
+        dynamic_nodes = self._get_dynamic_node_features()
+        static_edges = self._get_static_edge_features()
+        dynamic_edges = self._get_dynamic_edge_features()
 
         if self.debug:
             self.debug_helper.print_data_format(self.previous_timesteps)
 
         dataset = []
-        for i in range(len(self.timesteps) - 1):
+        for i in range(len(timesteps) - 1):
             node_features = self._get_timestep_data(i, static_nodes, dynamic_nodes)
             edge_features = self._get_timestep_data(i, static_edges, dynamic_edges)
             label_node = dynamic_nodes[i+1][:, [-1]] # Water level
@@ -112,7 +105,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
                 self.debug_helper.compute_total_size([node_features, edge_index, edge_features, label_node, label_edges])
 
             data = Data(x=node_features, edge_index=edge_index, edge_attr=edge_features,
-                        y=label_node, y_edge=label_edges, timestep=self.timesteps[i])
+                        y=label_node, y_edge=label_edges, timestep=timesteps[i])
 
             if self.pre_filter is not None and not self.pre_filter(data):
                 continue
@@ -127,7 +120,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
         self.save_dataset_info()
 
         if self.debug:
-            self.debug_helper.print_dataset_loaded((len(self.timesteps) - 1), data, self.dataset_info)
+            self.debug_helper.print_dataset_loaded((len(timesteps) - 1), data, self.dataset_info)
             self.debug_helper.clear()
 
     def get_dataset_info(self) -> Dict | None:
@@ -152,100 +145,29 @@ class InMemoryFloodEventDataset(InMemoryDataset):
 
     # =========== Helper Methods ===========
 
-    def _get_event_timesteps(self, root: str):
-        graph_metadata = file_utils.read_yaml_file(self.graph_metadata_path)
-        timesteps_kwargs = graph_metadata['properties']['timesteps']
-
-        hdf_filepath = Path(root) / 'raw' / self.hdf_file
-        timesteps = file_utils.read_hdf_file_as_numpy(filepath=hdf_filepath, property_path=timesteps_kwargs['path'])
-        timesteps = byte_to_timestamp(timesteps)
-
-        if self.debug:
-            self.debug_helper.print_timesteps_info(timesteps)
-
-        return timesteps
-
     def _get_feature_list(self, feature: dict[str, bool]) -> List[str]:
         return [name for name, is_included in feature.items() if is_included]
-        
-    def _get_feature_metadata(self, included_features: dict) -> dict:
-        yaml_metadata = file_utils.read_yaml_file(self.feature_metadata_path)
-
-        feature_metadata = {}
-        for feature_class in [FEATURE_CLASS_NODE, FEATURE_CLASS_EDGE]:
-            if feature_class not in included_features or feature_class not in yaml_metadata:
-                continue
-
-            local_metadata = {}
-            for name, data in yaml_metadata[feature_class].items():
-                if name in included_features[feature_class]:
-                    local_metadata |= {name: data}
-                    self.dataset_info[f"num_{data['type']}_{feature_class}"] += 1
-                    self.dataset_info[feature_class].append(name)
-
-            feature_metadata[feature_class] = local_metadata
-
-        return feature_metadata
 
     def _enforce_dataset_consistency(self):
         dataset_info = self.get_dataset_info()
         if dataset_info is None:
             return
-        
-        if (set(dataset_info[FEATURE_CLASS_NODE]) != set(self.dataset_info[FEATURE_CLASS_NODE])
-            or set(dataset_info[FEATURE_CLASS_EDGE]) != set(self.dataset_info[FEATURE_CLASS_EDGE])
+
+        if (set(dataset_info['node_features']) != set(self.dataset_info['node_features'])
+            or set(dataset_info['edge_features']) != set(self.dataset_info['edge_features'])
             or dataset_info['previous_timesteps'] != self.dataset_info['previous_timesteps']
             or dataset_info['is_normalized'] != self.dataset_info['is_normalized']):
             raise ValueError(f'Dataset features are inconsistent with previously loaded datasets. See {self.dataset_info_path}')
 
-    def _get_graph_properties(self) -> Tuple[torch.Tensor, torch.Tensor]:
-        graph_metadata = file_utils.read_yaml_file(self.graph_metadata_path)
-        property_metadata = graph_metadata['properties']
-
-        edge_index = self._load_feature_data(feature_class=FEATURE_CLASS_EDGE, **property_metadata['edge_index'])
-        edge_index = to_torch_tensor_w_transpose(edge_index)
-
-        # See if this is still needed
-        # pos = self._load_feature_data(feature_class=FEATURE_CLASS_NODE, **property_metadata['pos'])
-        # pos = to_torch_tensor_w_transpose(pos)
+    def _get_graph_properties(self) -> Tuple[List, torch.Tensor]:
+        timesteps = get_event_timesteps(self.raw_paths[0])
+        edge_index = get_edge_index(self.raw_paths[2])
 
         if self.debug:
+            self.debug_helper.print_timesteps_info(timesteps)
             self.debug_helper.print_graph_properties(edge_index)
-
-        return edge_index
-    
-    def _get_features(self, feature_class: str) -> Tuple[torch.Tensor, torch.Tensor]:
-        features = { FEATURE_TYPE_STATIC: [], FEATURE_TYPE_DYNAMIC: [] }
-        for name, metadata in self.feature_metadata[feature_class].items():
-            data = self._load_feature_data(feature_class=feature_class, **metadata)
-
-            if name in TRANSFORM_MAP:
-                transform_func = TRANSFORM_MAP[name]
-                data = transform_func(data)
-
-            if 'type' not in metadata or metadata['type'] not in [FEATURE_TYPE_STATIC, FEATURE_TYPE_DYNAMIC]:
-                continue
-
-            features[metadata['type']].append(data)
-            if self.debug:
-                self.debug_helper.assign_features(feature_class, metadata['type'], name, data)
-
-        static_features, dynamic_features = self._format_features(features)
-        if self.debug:
-            self.debug_helper.print_loaded_features(feature_class, static_features, dynamic_features)
         
-        if self.normalize:
-            static_features, dynamic_features = self._normalize_features(static_features, dynamic_features)
-
-        return static_features, dynamic_features
-
-    def _load_feature_data(self, file: str, **kwargs) -> np.ndarray:
-        if file == 'hdf':
-            return file_utils.read_hdf_file_as_numpy(filepath=self.raw_paths[0], property_path=kwargs['path'])
-        if file == 'shp':
-            path_idx = 1 if kwargs['feature_class'] == FEATURE_CLASS_NODE else 2
-            return file_utils.read_shp_file_as_numpy(filepath=self.raw_paths[path_idx], columns=kwargs['column'])
-        raise ValueError('Invalid file type in feature metadata. Valid values are: hdf, shp.')
+        return timesteps, edge_index
 
     def _format_features(self, features: dict) -> Tuple[torch.Tensor, torch.Tensor]:
         # Static features = (num_items, num_features)
@@ -285,3 +207,99 @@ class InMemoryFloodEventDataset(InMemoryDataset):
             ts_dynamic_features = ts_dynamic_features.permute((1, 2, 0)).flatten(start_dim=1)
 
         return torch.cat([static_features, ts_dynamic_features], dim=1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # =========== Feature Retrieval Methods ===========
+
+    def _get_static_node_features(self) -> Dict[str, Tensor]:
+        STATIC_NODE_RETRIEVAL_MAP = {
+            "area": lambda: get_cell_area(self.raw_paths[0]),
+            "roughness": lambda: get_roughness(self.raw_paths[0]),
+            "elevation": lambda: get_cell_elevation(self.raw_paths[1]),
+        }
+
+        return self._get_features(feature_list=self.node_feature_list,
+                                  feature_retrieval_map=STATIC_NODE_RETRIEVAL_MAP,
+                                  feature_assignment='node',
+                                  feature_type='static')
+
+    def _get_dynamic_node_features(self) -> Dict[str, Tensor]:
+        DYNAMIC_NODE_RETRIEVAL_MAP = {
+            "rainfall": lambda: get_rainfall(self.raw_paths[0]),
+            "water_level": lambda: get_water_level(self.raw_paths[0]),
+        }
+
+        return self._get_features(feature_list=self.node_feature_list,
+                                  feature_retrieval_map=DYNAMIC_NODE_RETRIEVAL_MAP,
+                                  feature_assignment='node',
+                                  feature_type='dynamic')
+
+    def _get_static_edge_features(self) -> Dict[str, Tensor]:
+        STATIC_EDGE_RETRIEVAL_MAP = {
+            "direction_x": lambda: get_edge_direction_x(self.raw_paths[0]),
+            "direction_y": lambda: get_edge_direction_y(self.raw_paths[0]),
+            "face_length": lambda: get_face_length(self.raw_paths[0]),
+            "length": lambda: get_edge_length(self.raw_paths[2]),
+            "slope": lambda: get_edge_slope(self.raw_paths[2]),
+        }
+
+        return self._get_features(feature_list=self.edge_feature_list,
+                                  feature_retrieval_map=STATIC_EDGE_RETRIEVAL_MAP,
+                                  feature_assignment='edge',
+                                  feature_type='static')
+
+    def _get_dynamic_edge_features(self) -> Dict[str, Tensor]:
+        DYNAMIC_EDGE_RETRIEVAL_MAP = {
+            "velocity": lambda: get_velocity(self.raw_paths[0]),
+        }
+
+        return self._get_features(feature_list=self.edge_feature_list,
+                                  feature_retrieval_map=DYNAMIC_EDGE_RETRIEVAL_MAP,
+                                  feature_assignment='edge',
+                                  feature_type='dynamic')
+
+    def _get_features(self,
+                      feature_list: List[str],
+                      feature_retrieval_map: Dict[str, Callable],
+                      feature_assignment: Literal['node', 'edge'],
+                      feature_type: Literal['static', 'dynamic']) -> Dict[str, Tensor]:
+        features = {}
+        for feature in feature_list:
+            if feature not in feature_retrieval_map:
+                continue
+
+            features[feature] = feature_retrieval_map[feature]()
+            self.dataset_info[f'num_{feature_type}_{feature_assignment}_features'] += 1
+            self.dataset_info[f'{feature_assignment}_features'].append(feature)
+
+        # TODO: Implement normalize
+        if self.normalize:
+            # features = self._normalize_features()
+            pass
+
+        return features
