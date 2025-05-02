@@ -104,8 +104,8 @@ def main():
         model.load_state_dict(torch.load(args.model_path, weights_only=True))
 
         # Validation
-        running_rmse = 0.0
-        running_mae = 0.0
+        rmse_list = []
+        mae_list = []
 
         model.eval()
         with torch.no_grad():
@@ -119,13 +119,15 @@ def main():
                 pred = model(graph)
 
                 label = graph.y
-                running_rmse += metric_utils.RMSE(pred, label)
-                running_mae += metric_utils.MAE(pred, label)
+                rmse = metric_utils.RMSE(pred, label).cpu()
+                rmse_list.append(rmse)
+                mae = metric_utils.MAE(pred, label).cpu()
+                mae_list.append(mae)
 
                 node_sliding_window = torch.concat((node_sliding_window[:, dynamic_node_features:], pred), dim=1)
         
-        average_rmse = running_rmse / len(data_loader)
-        average_mae = running_mae / len(data_loader)
+        average_rmse = np.array(rmse_list).mean()
+        average_mae = np.array(mae_list).mean()
 
         logger.log(f'Average RMSE: {average_rmse:.4f}')
         logger.log(f'Average MAE: {average_mae:.4f}')
