@@ -49,8 +49,10 @@ class MassConservationL1Loss(CombinedL1Loss):
         in_total_flux = in_total_fl_times_v * water_level
 
         mc_per_node = in_total_flux + volume - out_total_flux # This should be zero for mass conservation
-        mc_per_node = (mc_per_node - mc_per_node.mean()) / mc_per_node.std() # JUST FOR TESTING
+        # print(mc_per_node.max(), mc_per_node.min())
+        # mc_per_node = (mc_per_node - mc_per_node.mean()) / mc_per_node.std() # JUST FOR TESTING
         mc_loss = mc_per_node.sum()
+        # mc_loss = torch.clamp(mc_loss, min=0, max=1)
 
         return combined_l1_loss + mc_loss
 

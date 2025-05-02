@@ -10,6 +10,7 @@ from data import FloodEventDataset, InMemoryFloodEventDataset
 from models import GAT, GCN, GraphSAGE, GIN, GNNNoPassing, MLP, NodeEdgeGNN, NodeEdgeGNNNoPassing, SWEGNN
 from training import NodeRegressionTrainer, DualRegressionTrainer
 from torch_geometric.loader import DataLoader
+from torch_geometric.transforms import ToUndirected, Compose
 from typing import Callable
 from utils import Logger, file_utils
 from utils.loss_func_utils import get_loss_func
@@ -85,12 +86,7 @@ def main():
         train_config = config['training_parameters']
 
         dataset_class = FloodEventDataset if storage_mode == 'disk' else InMemoryFloodEventDataset
-        data_loader_params = {
-            'batch_size': train_config['batch_size'],
-            # 'pin_memory': True,
-            # 'num_workers': 2,
-            # 'persistent_workers': True,
-        }
+        transform = Compose([ToUndirected()])
 
         datasets = {}
         for event_key, event_parameters in dataset_parameters['flood_events'].items():
@@ -100,8 +96,9 @@ def main():
                         node_features=dataset_parameters['node_features'],
                         edge_features=dataset_parameters['edge_features'],
                         normalize=dataset_parameters['normalize'],
+                        transform=transform,
                         debug=args.debug)
-            datasets[event_key] = DataLoader(dataset, **data_loader_params)
+            datasets[event_key] = DataLoader(dataset, batch_size=train_config['batch_size'])
         dataset_info = file_utils.read_yaml_file(dataset_info_path)
 
         # Training
@@ -137,7 +134,7 @@ def main():
             model = model_factory(args.model, **model_params, **base_model_params)
 
             if args.debug:
-                num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+                num_train_params = model.get_model_size()
                 logger.log(f'Number of trainable model parameters: {num_train_params}')
 
             optimizer = torch.optim.Adam(model.parameters(), lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
