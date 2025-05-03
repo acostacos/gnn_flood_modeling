@@ -7,13 +7,6 @@ from torch import Tensor
 from torch_geometric.data import Data
 from typing import List, Dict, Callable
 
-
-FEATURE_CLASS_NODE = "node_features"
-FEATURE_CLASS_EDGE = "edge_features"
-
-FEATURE_TYPE_STATIC = "static"
-FEATURE_TYPE_DYNAMIC = "dynamic"
-
 class DatasetDebugHelper:
     def __init__(self, logger: Callable):
         self.logger = logger
@@ -39,68 +32,22 @@ class DatasetDebugHelper:
         if pos is not None:
             self.logger(f'\tPos: {pos.shape}')
 
+    def print_loaded_features(self, feature_assignment: str, feature_type: str, features: Dict[str, Tensor]):
+        self.logger(f'Successfully loaded {feature_type} features for {feature_assignment}:')
+        for name, data in features.items():
+            self.logger(f'\t{name}: {data.shape}')
 
+    def print_data_format(self, feature_assignment: str, static_features: List[str], dynamic_features: List[str], previous_timesteps: int):
+        self.logger(f'{feature_assignment} features format:')
+        self.logger(f'[')
+        for feat in static_features:
+            self.logger(f'\t{feat} (static)')
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    def print_loaded_features(self, feature_class: str, static_features: Tensor, dynamic_features: Tensor):
-        self.logger(f'Successfully loaded for {feature_class}:')
-        shape_map = {
-            FEATURE_TYPE_STATIC: static_features.shape,
-            FEATURE_TYPE_DYNAMIC: dynamic_features.shape,
-        }
-        for feat_type, features in self.debug_features[feature_class].items():
-            self.logger(f'\t{feat_type} (Shape: {shape_map[feat_type]}):')
-            for name, data in features.items():
-                self.logger(f'\t\t{name}: {data.shape}')
-
-    def print_data_format(self, previous_timesteps: int):
-        for feat_class, feat_type_dict in self.debug_features.items():
-            self.logger(f'Expected {feat_class} format:')
-            self.logger(f'\t[')
-            for feat_type, features in feat_type_dict.items():
-                for name in features.keys():
-                    if feat_type == FEATURE_TYPE_STATIC:
-                        self.logger(f'\t\t{name} ({feat_type})')
-                    elif feat_type == FEATURE_TYPE_DYNAMIC:
-                        for i in range(previous_timesteps, 0, -1):
-                            self.logger(f'\t\t{name} t-{i} ({feat_type})')
-                        self.logger(f'\t\t{name} t ({feat_type})')
-            self.logger(f'\t]')
-
-    def test_data_format(self, feature_class: str, timestep_idx: int, data: Tensor, previous_timesteps: int):
-        curr_idx = 0
-        for feat_type, features in self.debug_features[feature_class].items():
-            if feat_type == FEATURE_TYPE_STATIC:
-                for orig_data in features.values():
-                    assert torch.equal(data[:, curr_idx], Tensor(orig_data))
-                    curr_idx += 1
-            elif feat_type == FEATURE_TYPE_DYNAMIC:
-                for orig_data in features.values():
-                    for i in range(previous_timesteps, 0, -1):
-                        if timestep_idx-i < 0:
-                            assert torch.all(data[:, curr_idx] == 0)
-                        else:
-                            assert torch.equal(data[:, curr_idx], Tensor(orig_data[timestep_idx-i]))
-                        curr_idx += 1
-                    assert torch.equal(data[:, curr_idx], Tensor(orig_data[timestep_idx]))
-                    curr_idx += 1
+        for i in range(previous_timesteps, -1, -1):
+            timestep = 't' if i == 0 else f't-{i}' 
+            for feat in dynamic_features:
+                self.logger(f'\t{feat} {timestep} (dynamic)')
+        self.logger(f']')
 
     def compute_total_size(self, tensors: List[Tensor]):
         for tensor in tensors:
@@ -126,6 +73,3 @@ class DatasetDebugHelper:
         elapsed_time = self.timer_end_time - self.timer_start_time
         prefix = title or 'Time taken'
         self.logger(f'{prefix}: {elapsed_time:.4f} seconds')
-
-    def clear(self):
-        self.debug_total_size = 0

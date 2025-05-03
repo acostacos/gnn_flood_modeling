@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 from train import model_factory
-from data import FloodEventDataset, InMemoryFloodEventDataset
+from data import InMemoryFloodEventDataset
 from utils import file_utils
 from utils.loss_func_utils import get_loss_func
 
@@ -32,16 +32,14 @@ def main():
     # Load dataset
     dataset_parameters = config['dataset_parameters']
     dataset_info_path = f"../{dataset_parameters['dataset_info_path']}"
-    storage_mode = dataset_parameters['storage_mode']
     event_parameters = dataset_parameters['flood_events'][EVENT_NAME]
     event_parameters['root_dir'] = f"../{event_parameters['root_dir']}"
 
-    dataset_class = FloodEventDataset if storage_mode == 'disk' else InMemoryFloodEventDataset
-    dataset = dataset_class(**event_parameters,
+    dataset = InMemoryFloodEventDataset(**event_parameters,
                 dataset_info_path=dataset_info_path,
                 previous_timesteps=dataset_parameters['previous_timesteps'],
-                node_features=dataset_parameters['node_features'],
-                edge_features=dataset_parameters['edge_features'],
+                node_feat_config=dataset_parameters['node_features'],
+                edge_feat_config=dataset_parameters['edge_features'],
                 normalize=dataset_parameters['normalize'],)
     dataset_info = file_utils.read_yaml_file(dataset_info_path)
 

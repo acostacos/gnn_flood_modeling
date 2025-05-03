@@ -21,7 +21,7 @@ def save_to_yaml_file(filepath: str, data: dict):
 
 def read_shp_file_as_numpy(filepath: str, columns: str | list) -> np.ndarray:
     file = gpd.read_file(filepath)
-    np_data = file[columns].to_numpy(dtype='float32')
+    np_data = file[columns].to_numpy()
     return np_data
 
 def read_hdf_file_as_numpy(filepath: str, property_path: str, separator: str = '.') -> np.ndarray:

@@ -7,7 +7,7 @@ import yaml
 
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
-from data import FloodEventDataset, InMemoryFloodEventDataset
+from data import InMemoryFloodEventDataset
 from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import ToUndirected, Compose
 from train import model_factory
@@ -70,13 +70,15 @@ def main():
             raise ValueError(f'Event key {event_key} not found in dataset parameters.')
 
         event_parameters = flood_events[event_key]
-        dataset_class = FloodEventDataset if storage_mode == 'disk' else InMemoryFloodEventDataset
+        # TODO: Implement FloodEventDataset for disk storage mode
+        # dataset_class = FloodEventDataset if storage_mode == 'disk' else InMemoryFloodEventDataset
+        dataset_class = InMemoryFloodEventDataset
         transform = Compose([ToUndirected()])
         dataset = dataset_class(**event_parameters,
                     dataset_info_path=dataset_info_path,
                     previous_timesteps=dataset_parameters['previous_timesteps'],
-                    node_features=dataset_parameters['node_features'],
-                    edge_features=dataset_parameters['edge_features'],
+                    node_feat_config=dataset_parameters['node_features'],
+                    edge_feat_config=dataset_parameters['edge_features'],
                     normalize=dataset_parameters['normalize'],
                     transform=transform,
                     debug=args.debug)

@@ -6,7 +6,7 @@ import yaml
 
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
-from data import FloodEventDataset, InMemoryFloodEventDataset
+from data import InMemoryFloodEventDataset
 from models import GAT, GCN, GraphSAGE, GIN, GNNNoPassing, MLP, NodeEdgeGNN, NodeEdgeGNNNoPassing, SWEGNN
 from training import NodeRegressionTrainer, DualRegressionTrainer
 from torch_geometric.loader import DataLoader
@@ -83,7 +83,9 @@ def main():
         storage_mode = dataset_parameters['storage_mode']
         train_config = config['training_parameters']
 
-        dataset_class = FloodEventDataset if storage_mode == 'disk' else InMemoryFloodEventDataset
+        # TODO: Implement FloodEventDataset for disk storage mode
+        # dataset_class = FloodEventDataset if storage_mode == 'disk' else InMemoryFloodEventDataset
+        dataset_class = InMemoryFloodEventDataset
         transform = Compose([ToUndirected()])
 
         datasets = {}
@@ -91,8 +93,8 @@ def main():
             dataset = dataset_class(**event_parameters,
                         dataset_info_path=dataset_info_path,
                         previous_timesteps=dataset_parameters['previous_timesteps'],
-                        node_features=dataset_parameters['node_features'],
-                        edge_features=dataset_parameters['edge_features'],
+                        node_feat_config=dataset_parameters['node_features'],
+                        edge_feat_config=dataset_parameters['edge_features'],
                         normalize=dataset_parameters['normalize'],
                         transform=transform,
                         debug=args.debug)

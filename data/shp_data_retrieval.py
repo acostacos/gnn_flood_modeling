@@ -1,22 +1,24 @@
-import torch
 import numpy as np
 
 from utils import file_utils
 
-def get_edge_index(filepath: str) -> torch.Tensor:
+def get_edge_index(filepath: str) -> np.ndarray:
     columns = ['from_node', 'to_node']
     data = file_utils.read_shp_file_as_numpy(filepath=filepath, columns=columns)
     # Convert to edge index format
-    return torch.Tensor(data).type(torch.int32).transpose(1, 0)
+    return data.astype(np.int32).transpose()
 
-def get_cell_elevation(filepath: str) -> np.ndarray:
+def get_cell_elevation(filepath: str, dtype: np.dtype = np.float32) -> np.ndarray:
     columns = 'Elevation1'
-    return file_utils.read_shp_file_as_numpy(filepath=filepath, columns=columns)
+    data = file_utils.read_shp_file_as_numpy(filepath=filepath, columns=columns)
+    return data.astype(dtype)
 
-def get_edge_length(filepath: str) -> np.ndarray:
+def get_edge_length(filepath: str, dtype: np.dtype = np.float32) -> np.ndarray:
     columns = 'length'
-    return file_utils.read_shp_file_as_numpy(filepath=filepath, columns=columns)
+    data = file_utils.read_shp_file_as_numpy(filepath=filepath, columns=columns)
+    return data.astype(dtype)
 
-def get_edge_slope(filepath: str) -> np.ndarray:
+def get_edge_slope(filepath: str, dtype: np.dtype = np.float32) -> np.ndarray:
     columns = 'slope'
-    return file_utils.read_shp_file_as_numpy(filepath=filepath, columns=columns)
+    data = file_utils.read_shp_file_as_numpy(filepath=filepath, columns=columns)
+    return data.astype(dtype)
