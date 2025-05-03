@@ -192,8 +192,9 @@ class InMemoryFloodEventDataset(InMemoryDataset):
 
         # Add padding for first few timesteps without previous data
         if timestep_idx < self.previous_timesteps:
+            padding_size = (self.previous_timesteps - timestep_idx) * len(feature_order)
             ts_dynamic_features = np.pad(ts_dynamic_features,
-                                         ((0, 0), (self.previous_timesteps-timestep_idx, 0)),
+                                         ((0, 0), (padding_size, 0)),
                                          mode='constant',
                                          constant_values=0)
 
