@@ -62,6 +62,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
             'previous_timesteps': previous_timesteps,
             'is_normalized': normalize,
         }
+        self.feature_stats = {}
         self._enforce_dataset_consistency()
 
         super().__init__(root_dir, transform, pre_transform, pre_filter, log=debug)

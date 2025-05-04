@@ -17,12 +17,13 @@ torch.serialization.add_safe_globals([datetime])
 
 def parse_args() -> Namespace:
     parser = ArgumentParser(description='')
-    parser.add_argument('--config_path', type=str, default='configs/config.yaml', help='Path to training config file')
+    parser.add_argument("--config_path", type=str, default='configs/config.yaml', help='Path to training config file')
     parser.add_argument("--model", type=str, default='NodeEdgeGNN', help='Model to use for training')
     parser.add_argument('--model_path', type=str, default=None, help='Path to trained model file')
     parser.add_argument("--seed", type=int, default=42, help='Seed for random number generators')
     parser.add_argument("--device", type=str, default=('cuda' if torch.cuda.is_available() else 'cpu'), help='Device to run on')
     parser.add_argument("--log_path", type=str, default=None, help='Path to log file')
+    parser.add_argument("--output_dir", type=str, default='saved_metrics', help='Path to directory to save metrics')
     parser.add_argument("--debug", type=bool, default=False, help='Add debug messages to output')
     return parser.parse_args()
 
@@ -50,9 +51,6 @@ def main():
 
     try:
         logger.log('================================================')
-
-        args.model = 'GCN'
-        args.model_path = 'saved_models/GCN/GCN_for_initp01_2025-05-04_09-28-43.pt'
 
         event_key = parse_model_path(args.model_path, args.model)
         logger.log(f'Loading {args.model} model from {args.model_path}')
@@ -108,12 +106,17 @@ def main():
         model = model_factory(args.model, **model_params, **base_model_params)
         model.load_state_dict(torch.load(args.model_path, weights_only=True))
 
-        # Validation
-        rmse_list = []
-        mae_list = []
-
         model.eval()
         with torch.no_grad():
+            # Features per timestep
+            pred_list = []
+            target_list = []
+
+            # Metrics per timestep
+            rmse_list = []
+            mae_list = []
+            nse_list = []
+
             sliding_window_length = 1 * (previous_timesteps+1) # Water Level at the end of node features
             wl_sliding_window = dataset[0].x.clone()[:, -sliding_window_length:]
             wl_sliding_window = wl_sliding_window.to(args.device)
@@ -123,20 +126,38 @@ def main():
                 graph.x = torch.concat((graph.x[:, :-sliding_window_length], wl_sliding_window), dim=1)
 
                 pred = model(graph)
+                wl_sliding_window = torch.concat((wl_sliding_window[:, 1:], pred), dim=1)
 
                 label = graph.y
                 rmse = metric_utils.RMSE(pred, label).cpu()
                 rmse_list.append(rmse)
                 mae = metric_utils.MAE(pred, label).cpu()
                 mae_list.append(mae)
+                nse = metric_utils.NSE(pred, label).cpu()
+                nse_list.append(nse)
 
-                wl_sliding_window = torch.concat((wl_sliding_window[:, 1:], pred), dim=1)
+                pred_list.append(pred.cpu())
+                target_list.append(label.cpu())
 
-        average_rmse = np.array(rmse_list).mean()
-        average_mae = np.array(mae_list).mean()
+        rmse_np = np.array(rmse_list)
+        mae_np = np.array(mae_list)
+        nse_np = np.array(nse_list)
 
-        logger.log(f'Average RMSE: {average_rmse:.4f}')
-        logger.log(f'Average MAE: {average_mae:.4f}')
+        logger.log(f'Average RMSE: {rmse_np.mean():.4f}')
+        logger.log(f'Average MAE: {mae_np.mean():.4f}')
+        logger.log(f'Average NSE: {nse_np.mean():.4f}')
+
+        if args.output_dir is not None:
+            if not os.path.exists(args.output_dir):
+                os.makedirs(args.output_dir)
+
+            saved_metrics_name = f'{args.model}_{event_key}_metrics.npz'
+            saved_metrics_path = os.path.join(args.output_dir, saved_metrics_name)
+            np.savez(saved_metrics_path,
+                     pred=np.array(pred_list), target=np.array(target_list),
+                     rmse=rmse_np, mae=mae_np, nse=nse_np)
+
+            logger.log(f'Saved metrics to: {saved_metrics_path}')
 
         logger.log('================================================')
 
