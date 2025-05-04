@@ -19,6 +19,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
                  hec_ras_hdf_file: str,
                  nodes_shp_file: str,
                  edges_shp_file: str,
+                 feature_stats_file: str,
                  previous_timesteps: int = 0,
                  node_feat_config: dict[str, bool] = {},
                  edge_feat_config: dict[str, bool] = {},
@@ -42,9 +43,10 @@ class InMemoryFloodEventDataset(InMemoryDataset):
         self.hdf_file = hec_ras_hdf_file
         self.nodes_shp_file = nodes_shp_file
         self.edges_shp_file = edges_shp_file
+        self.feature_stats_file = feature_stats_file
         self.normalize = normalize
         if self.debug:
-            self.debug_helper.print_file_paths(self.dataset_info_path, root_dir, self.hdf_file, self.nodes_shp_file, self.edges_shp_file)
+            self.debug_helper.print_file_paths(self.dataset_info_path, root_dir, self.hdf_file, self.nodes_shp_file, self.edges_shp_file, self.feature_stats_file)
 
         # Set features to load
         self.node_feature_list = self._get_feature_list(node_feat_config)
@@ -68,6 +70,8 @@ class InMemoryFloodEventDataset(InMemoryDataset):
         super().__init__(root_dir, transform, pre_transform, pre_filter, log=debug)
 
         self.load(self.processed_paths[0])
+        if len(self.feature_stats) == 0:
+            self.feature_stats = self.get_feature_stats()
 
     @property
     def raw_file_names(self):
@@ -75,7 +79,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return ['complete_data.pt']
+        return ['complete_data.pt', self.feature_stats_file]
 
     def download(self):
         # Data must be downloaded manually and placed in the raw_dir
@@ -111,6 +115,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
         self.save(dataset, self.processed_paths[0])
 
         self.save_dataset_info()
+        self.save_feature_stats()
 
         if self.debug:
             self.debug_helper.print_dataset_loaded((len(timesteps) - 1), data, self.dataset_info)
@@ -133,7 +138,19 @@ class InMemoryFloodEventDataset(InMemoryDataset):
 
         if self.debug:
             self.debug_helper.print_dataset_info_saved(self.dataset_info_path)
+    
+    def get_feature_stats(self) -> Dict:
+        if not os.path.exists(self.feature_stats_file):
+            return {}
 
+        feature_stats = file_utils.read_yaml_file(self.processed_paths[1])
+        return feature_stats
+
+    def save_feature_stats(self):
+        file_utils.save_to_yaml_file(self.processed_paths[1], self.feature_stats)
+
+        if self.debug:
+            self.debug_helper.print_feature_stats_saved(self.processed_paths[1])
 
     # =========== Helper Methods ===========
 
@@ -267,11 +284,16 @@ class InMemoryFloodEventDataset(InMemoryDataset):
             if feature not in feature_retrieval_map:
                 continue
 
-            features[feature] = feature_retrieval_map[feature]()
-            if self.normalize:
-                axis = 1 if feature_type == 'dynamic' else 0
-                features[feature] = self._normalize_features(features[feature], axis=axis)
+            feature_data: np.ndarray = feature_retrieval_map[feature]()
+            self.feature_stats[feature] = {
+                'mean': feature_data.mean().item(),
+                'std': feature_data.std().item(),
+            }
 
+            if self.normalize:
+                feature_data = self._normalize_features(feature_data)
+
+            features[feature] = feature_data
             self.dataset_info[f'num_{feature_type}_{feature_assignment}_features'] += 1
             self.dataset_info[f'{feature_assignment}_features'].append(feature)
 
@@ -280,10 +302,12 @@ class InMemoryFloodEventDataset(InMemoryDataset):
 
         return features
 
-    def _normalize_features(self, feature_data: np.ndarray, axis: int = 0) -> np.ndarray:
+    def _normalize_features(self, feature_data: np.ndarray) -> np.ndarray:
         """Z-score normalization of features"""
         EPS = 1e-7 # Prevent division by zero
-        mean = feature_data.mean(axis=axis, keepdims=True)
-        std = feature_data.std(axis=axis, keepdims=True)
-        normalized_features = (feature_data - mean) / (std + EPS)
-        return normalized_features
+        return (feature_data - feature_data.mean()) / (feature_data.std() + EPS)
+
+    def _denormalize_features(self, feature: str, feature_data: np.ndarray) -> np.ndarray:
+        """Z-score denormalization of features"""
+        EPS = 1e-7
+        return feature_data * (self.feature_stats[feature]['std'] + EPS) + self.feature_stats[feature]['mean']

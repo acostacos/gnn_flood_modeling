@@ -37,6 +37,7 @@ def main():
 
     dataset = InMemoryFloodEventDataset(**event_parameters,
                 dataset_info_path=dataset_info_path,
+                feature_stats_file=dataset_parameters['feature_stats_file'],
                 previous_timesteps=dataset_parameters['previous_timesteps'],
                 node_feat_config=dataset_parameters['node_features'],
                 edge_feat_config=dataset_parameters['edge_features'],

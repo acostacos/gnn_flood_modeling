@@ -3,6 +3,7 @@ dataset_parameters:
   previous_timesteps: 2
   normalize: True
   dataset_info_path: 'data/datasets/hr/dataset_info.yaml'
+  feature_stats_file: 'feature_stats.yaml'
 
   flood_events:
     hrp03:

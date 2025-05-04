@@ -6,7 +6,7 @@ def get_edge_index(filepath: str) -> np.ndarray:
     columns = ['from_node', 'to_node']
     data = file_utils.read_shp_file_as_numpy(filepath=filepath, columns=columns)
     # Convert to edge index format
-    return data.astype(np.int32).transpose()
+    return data.astype(np.int64).transpose()
 
 def get_cell_elevation(filepath: str, dtype: np.dtype = np.float32) -> np.ndarray:
     columns = 'Elevation1'

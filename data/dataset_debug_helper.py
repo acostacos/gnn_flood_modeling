@@ -14,12 +14,13 @@ class DatasetDebugHelper:
         self.timer_start_time = None
         self.timer_end_time = None
 
-    def print_file_paths(self, dataset_info_path: str, root: str, hdf_filename: str, nodes_shp_filename: str, edges_shp_filename: str):
+    def print_file_paths(self, dataset_info_path: str, root: str, hdf_filename: str, nodes_shp_filename: str, edges_shp_filename: str, feature_stats_filiename: str):
         self.logger('Loading data from the following files:')
         self.logger(f'\tDataset Info Filepath: {dataset_info_path}')
-        self.logger(f'\tHEC-RAS HDF Filename: {Path(root) / hdf_filename}')
+        self.logger(f'\tHEC-RAS HDF Filepath: {Path(root) / hdf_filename}')
         self.logger(f'\tNodes SHP Filepath: {Path(root) / nodes_shp_filename}')
         self.logger(f'\tEdges SHP Filepath: {Path(root) / edges_shp_filename}')
+        self.logger(f'\tFeature Stats Filepath: {Path(root) / 'processed' / feature_stats_filiename}')
     
     def print_timesteps_info(self, timesteps: List[datetime]):
         self.logger(f'Timesteps: {len(timesteps)}')
@@ -64,6 +65,9 @@ class DatasetDebugHelper:
 
     def print_dataset_info_saved(self, dataset_info_path: str):
         self.logger(f'Saved dataset info to {dataset_info_path}')
+    
+    def print_feature_stats_saved(self, feature_stats_filepath: str):
+        self.logger(f'Saved feature stats to {feature_stats_filepath}')
     
     def start_timer(self):
         self.timer_start_time = time.time()

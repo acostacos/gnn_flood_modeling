@@ -77,6 +77,7 @@ def main():
         transform = Compose([ToUndirected()])
         dataset = dataset_class(**event_parameters,
                     dataset_info_path=dataset_info_path,
+                    feature_stats_file=dataset_parameters['feature_stats_file'],
                     previous_timesteps=dataset_parameters['previous_timesteps'],
                     node_feat_config=dataset_parameters['node_features'],
                     edge_feat_config=dataset_parameters['edge_features'],
@@ -116,6 +117,9 @@ def main():
             rmse_list = []
             mae_list = []
             nse_list = []
+            rmse_flooded_list = []
+            mae_flooded_list = []
+            nse_flooded_list = []
 
             sliding_window_length = 1 * (previous_timesteps+1) # Water Level at the end of node features
             wl_sliding_window = dataset[0].x.clone()[:, -sliding_window_length:]
@@ -129,6 +133,9 @@ def main():
                 wl_sliding_window = torch.concat((wl_sliding_window[:, 1:], pred), dim=1)
 
                 label = graph.y
+                pred_list.append(pred.cpu())
+                target_list.append(label.cpu())
+
                 rmse = metric_utils.RMSE(pred, label).cpu()
                 rmse_list.append(rmse)
                 mae = metric_utils.MAE(pred, label).cpu()
@@ -136,8 +143,11 @@ def main():
                 nse = metric_utils.NSE(pred, label).cpu()
                 nse_list.append(nse)
 
-                pred_list.append(pred.cpu())
-                target_list.append(label.cpu())
+                # Load event flooded metrics
+                # Unnormalize data
+                binary_pred = metric_utils.convert_water_level_to_binary(pred, water_threshold=0.3)
+                binary_label = metric_utils.convert_water_level_to_binary(label, water_threshold=0.3)
+
 
         rmse_np = np.array(rmse_list)
         mae_np = np.array(mae_list)
