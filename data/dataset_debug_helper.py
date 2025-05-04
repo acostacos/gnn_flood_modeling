@@ -43,9 +43,9 @@ class DatasetDebugHelper:
         for feat in static_features:
             self.logger(f'\t{feat} (static)')
 
-        for i in range(previous_timesteps, -1, -1):
-            timestep = 't' if i == 0 else f't-{i}' 
-            for feat in dynamic_features:
+        for feat in dynamic_features:
+            for i in range(previous_timesteps, -1, -1):
+                timestep = 't' if i == 0 else f't-{i}' 
                 self.logger(f'\t{feat} {timestep} (dynamic)')
         self.logger(f']')
 

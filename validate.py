@@ -51,6 +51,9 @@ def main():
     try:
         logger.log('================================================')
 
+        args.model = 'GCN'
+        args.model_path = 'saved_models/GCN/GCN_for_initp01_2025-05-04_09-28-43.pt'
+
         event_key = parse_model_path(args.model_path, args.model)
         logger.log(f'Loading {args.model} model from {args.model_path}')
 
@@ -111,12 +114,13 @@ def main():
 
         model.eval()
         with torch.no_grad():
-            node_sliding_window = dataset[0].x.clone()[:, :-(dynamic_node_features*(previous_timesteps+1))]
-            node_sliding_window = node_sliding_window.to(args.device)
+            sliding_window_length = 1 * (previous_timesteps+1) # Water Level at the end of node features
+            wl_sliding_window = dataset[0].x.clone()[:, -sliding_window_length:]
+            wl_sliding_window = wl_sliding_window.to(args.device)
 
             for graph in data_loader:
                 graph = graph.to(args.device)
-                graph.x = torch.concat((graph.x[:, :static_node_features], node_sliding_window), dim=1)
+                graph.x = torch.concat((graph.x[:, :-sliding_window_length], wl_sliding_window), dim=1)
 
                 pred = model(graph)
 
@@ -126,8 +130,8 @@ def main():
                 mae = metric_utils.MAE(pred, label).cpu()
                 mae_list.append(mae)
 
-                node_sliding_window = torch.concat((node_sliding_window[:, dynamic_node_features:], pred), dim=1)
-        
+                wl_sliding_window = torch.concat((wl_sliding_window[:, 1:], pred), dim=1)
+
         average_rmse = np.array(rmse_list).mean()
         average_mae = np.array(mae_list).mean()
 

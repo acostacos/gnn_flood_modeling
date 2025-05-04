@@ -185,18 +185,14 @@ class InMemoryFloodEventDataset(InMemoryDataset):
     def _get_dynamic_timestep_data(self, dynamic_features: Dict[str, np.ndarray], feature_order: List[str], timestep_idx: int) -> Tensor:
         """Returns the dynamic features for the timestep in the shape [num_items, num_features]. Includes the current timestep and previous timesteps."""
         ts_dynamic_features = []
-        for i in range(max(0, timestep_idx-self.previous_timesteps), timestep_idx+1):
-            for feature in feature_order:
-                ts_dynamic_features.append(dynamic_features[feature][i])
+        for feature in feature_order:
+            for i in range(self.previous_timesteps, -1, -1):
+                if timestep_idx-i < 0:
+                    # Pad with zeros if no previous data is available
+                    ts_dynamic_features.append(np.zeros_like(dynamic_features[feature][0]))
+                else:
+                    ts_dynamic_features.append(dynamic_features[feature][timestep_idx-i])
         ts_dynamic_features = np.array(ts_dynamic_features).transpose()
-
-        # Add padding for first few timesteps without previous data
-        if timestep_idx < self.previous_timesteps:
-            padding_size = (self.previous_timesteps - timestep_idx) * len(feature_order)
-            ts_dynamic_features = np.pad(ts_dynamic_features,
-                                         ((0, 0), (padding_size, 0)),
-                                         mode='constant',
-                                         constant_values=0)
 
         return torch.from_numpy(ts_dynamic_features)
     
