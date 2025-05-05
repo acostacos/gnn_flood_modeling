@@ -134,33 +134,46 @@ def main():
                 wl_sliding_window = torch.concat((wl_sliding_window[:, 1:], pred), dim=1)
 
                 label = graph.y
-                pred_list.append(pred.cpu())
-                target_list.append(label.cpu())
 
-                rmse = metric_utils.RMSE(pred, label).cpu()
-                rmse_list.append(rmse)
-                mae = metric_utils.MAE(pred, label).cpu()
-                mae_list.append(mae)
-                nse = metric_utils.NSE(pred, label).cpu()
-                nse_list.append(nse)
+                pred = pred.cpu()
+                label = label.cpu()
 
+                # Get elevation from the graph data
+                ELEVATION_IDX = 2
+                elevation = graph.x[:, ELEVATION_IDX][:, None].cpu()
+                denormalized_elevation = dataset._denormalize_features('elevation', elevation)
+
+                # Convert water level to water depth
                 denormalized_pred = dataset._denormalize_features('water_level', pred)
                 denormalized_label = dataset._denormalize_features('water_level', label)
-                csi = metric_utils.CSI(denormalized_pred, denormalized_label, threshold=0.3).cpu()
+                water_depth_pred = denormalized_pred - denormalized_elevation
+                water_depth_label = denormalized_label - denormalized_elevation
+
+                pred_list.append(water_depth_pred)
+                target_list.append(water_depth_label)
+
+                rmse = metric_utils.RMSE(water_depth_pred, water_depth_label)
+                rmse_list.append(rmse)
+                mae = metric_utils.MAE(water_depth_pred, water_depth_label)
+                mae_list.append(mae)
+                nse = metric_utils.NSE(water_depth_pred, water_depth_label)
+                nse_list.append(nse)
+
+                csi = metric_utils.CSI(water_depth_pred, water_depth_label, threshold=0.05)
                 csi_list.append(csi)
 
                 # Compute metrics for flooded areas only
-                binary_pred = metric_utils.convert_water_level_to_binary(denormalized_pred, water_threshold=0.3)
-                binary_label = metric_utils.convert_water_level_to_binary(denormalized_label, water_threshold=0.3)
-                flooded_mask = binary_pred & binary_label
-                flooded_pred = pred[flooded_mask]
-                flooded_label = label[flooded_mask]
+                binary_pred = metric_utils.convert_water_depth_to_binary(water_depth_pred, water_threshold=0.05)
+                binary_label = metric_utils.convert_water_depth_to_binary(water_depth_label, water_threshold=0.05)
+                flooded_mask = binary_pred | binary_label
+                flooded_pred = water_depth_pred[flooded_mask]
+                flooded_label = water_depth_label[flooded_mask]
 
-                rmse_flooded = metric_utils.RMSE(flooded_pred, flooded_label).cpu()
+                rmse_flooded = metric_utils.RMSE(flooded_pred, flooded_label)
                 rmse_flooded_list.append(rmse_flooded)
-                mae_flooded = metric_utils.MAE(flooded_pred, flooded_label).cpu()
+                mae_flooded = metric_utils.MAE(flooded_pred, flooded_label)
                 mae_flooded_list.append(mae_flooded)
-                nse_flooded = metric_utils.NSE(flooded_pred, flooded_label).cpu()
+                nse_flooded = metric_utils.NSE(flooded_pred, flooded_label)
                 nse_flooded_list.append(nse_flooded)
 
         rmse_np = np.array(rmse_list)
