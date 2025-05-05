@@ -140,7 +140,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
             self.debug_helper.print_dataset_info_saved(self.dataset_info_path)
     
     def get_feature_stats(self) -> Dict:
-        if not os.path.exists(self.feature_stats_file):
+        if not os.path.exists(self.processed_paths[1]):
             return {}
 
         feature_stats = file_utils.read_yaml_file(self.processed_paths[1])
@@ -309,5 +309,8 @@ class InMemoryFloodEventDataset(InMemoryDataset):
 
     def _denormalize_features(self, feature: str, feature_data: np.ndarray) -> np.ndarray:
         """Z-score denormalization of features"""
+        if feature not in self.feature_stats:
+            raise ValueError(f'Feature {feature} not found in feature stats.')
+
         EPS = 1e-7
         return feature_data * (self.feature_stats[feature]['std'] + EPS) + self.feature_stats[feature]['mean']

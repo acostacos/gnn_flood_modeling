@@ -117,6 +117,7 @@ def main():
             rmse_list = []
             mae_list = []
             nse_list = []
+            csi_list = []
             rmse_flooded_list = []
             mae_flooded_list = []
             nse_flooded_list = []
@@ -143,19 +144,40 @@ def main():
                 nse = metric_utils.NSE(pred, label).cpu()
                 nse_list.append(nse)
 
-                # Load event flooded metrics
-                # Unnormalize data
-                binary_pred = metric_utils.convert_water_level_to_binary(pred, water_threshold=0.3)
-                binary_label = metric_utils.convert_water_level_to_binary(label, water_threshold=0.3)
+                denormalized_pred = dataset._denormalize_features('water_level', pred)
+                denormalized_label = dataset._denormalize_features('water_level', label)
+                csi = metric_utils.CSI(denormalized_pred, denormalized_label, threshold=0.3).cpu()
+                csi_list.append(csi)
 
+                # Compute metrics for flooded areas only
+                binary_pred = metric_utils.convert_water_level_to_binary(denormalized_pred, water_threshold=0.3)
+                binary_label = metric_utils.convert_water_level_to_binary(denormalized_label, water_threshold=0.3)
+                flooded_mask = binary_pred & binary_label
+                flooded_pred = pred[flooded_mask]
+                flooded_label = label[flooded_mask]
+
+                rmse_flooded = metric_utils.RMSE(flooded_pred, flooded_label).cpu()
+                rmse_flooded_list.append(rmse_flooded)
+                mae_flooded = metric_utils.MAE(flooded_pred, flooded_label).cpu()
+                mae_flooded_list.append(mae_flooded)
+                nse_flooded = metric_utils.NSE(flooded_pred, flooded_label).cpu()
+                nse_flooded_list.append(nse_flooded)
 
         rmse_np = np.array(rmse_list)
         mae_np = np.array(mae_list)
         nse_np = np.array(nse_list)
+        csi_np = np.array(csi_list)
+        rmse_flooded_np = np.array(rmse_flooded_list)
+        mae_flooded_np = np.array(mae_flooded_list)
+        nse_flooded_np = np.array(nse_flooded_list)
 
         logger.log(f'Average RMSE: {rmse_np.mean():.4f}')
+        logger.log(f'Average RMSE (flooded): {rmse_flooded_np.mean():.4f}')
         logger.log(f'Average MAE: {mae_np.mean():.4f}')
+        logger.log(f'Average MAE (flooded): {mae_flooded_np.mean():.4f}')
         logger.log(f'Average NSE: {nse_np.mean():.4f}')
+        logger.log(f'Average NSE (flooded): {nse_flooded_np.mean():.4f}')
+        logger.log(f'Average CSI: {csi_np.mean():.4f}')
 
         if args.output_dir is not None:
             if not os.path.exists(args.output_dir):
@@ -165,7 +187,8 @@ def main():
             saved_metrics_path = os.path.join(args.output_dir, saved_metrics_name)
             np.savez(saved_metrics_path,
                      pred=np.array(pred_list), target=np.array(target_list),
-                     rmse=rmse_np, mae=mae_np, nse=nse_np)
+                     rmse=rmse_np, mae=mae_np, nse=nse_np, csi=csi_np,
+                     rmse_flooded=rmse_flooded_np, mae_flooded=mae_flooded_np, nse_flooded=nse_flooded_np)
 
             logger.log(f'Saved metrics to: {saved_metrics_path}')
 

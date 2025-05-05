@@ -16,9 +16,9 @@ def NSE(pred: Tensor, target: Tensor) -> Tensor:
     return 1 - (model_sse / mean_model_sse)
 
 def CSI(pred: Tensor, target: Tensor, threshold: float = 0.3):
-    # Unnormalize data
-    # Threshold water levels
-    TP, _, FP, FN = get_confusion_matrix(pred, target)
+    binary_pred = convert_water_level_to_binary(pred, water_threshold=threshold)
+    binary_target = convert_water_level_to_binary(target, water_threshold=threshold)
+    TP, _, FP, FN = get_confusion_matrix(binary_pred, binary_target)
     return TP / (TP + FN + FP)
 
 def convert_water_level_to_binary(water_level: Tensor, water_threshold: float = 0.3) -> Tensor:
