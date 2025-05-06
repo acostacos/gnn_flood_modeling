@@ -20,8 +20,8 @@ class DatasetDebugHelper:
         self.logger(f'\tHEC-RAS HDF Filepath: {Path(root) / hdf_filename}')
         self.logger(f'\tNodes SHP Filepath: {Path(root) / nodes_shp_filename}')
         self.logger(f'\tEdges SHP Filepath: {Path(root) / edges_shp_filename}')
-        self.logger(f'\tFeature Stats Filepath: {Path(root) / 'processed' / feature_stats_filiename}')
-    
+        self.logger(f'\tFeature Stats Filepath: {Path(root) / "processed" / feature_stats_filiename}')
+
     def print_timesteps_info(self, timesteps: List[datetime]):
         self.logger(f'Timesteps: {len(timesteps)}')
         if len(timesteps) > 1:

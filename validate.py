@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import traceback
+import time
 import torch
 import re
 import yaml
@@ -125,6 +126,7 @@ def main():
             sliding_window_length = 1 * (previous_timesteps+1) # Water Level at the end of node features
             wl_sliding_window = dataset[0].x.clone()[:, -sliding_window_length:]
             wl_sliding_window = wl_sliding_window.to(args.device)
+            start_time = time.time()
 
             for graph in data_loader:
                 graph = graph.to(args.device)
@@ -176,6 +178,7 @@ def main():
                 nse_flooded = metric_utils.NSE(flooded_pred, flooded_label)
                 nse_flooded_list.append(nse_flooded)
 
+        end_time = time.time()
         rmse_np = np.array(rmse_list)
         mae_np = np.array(mae_list)
         nse_np = np.array(nse_list)
@@ -184,6 +187,7 @@ def main():
         mae_flooded_np = np.array(mae_flooded_list)
         nse_flooded_np = np.array(nse_flooded_list)
 
+        logger.log(f'Inference time for one timestep: {(end_time - start_time)/len(pred_list):.4f} seconds')
         logger.log(f'Average RMSE: {rmse_np.mean():.4f}')
         logger.log(f'Average RMSE (flooded): {rmse_flooded_np.mean():.4f}')
         logger.log(f'Average MAE: {mae_np.mean():.4f}')
