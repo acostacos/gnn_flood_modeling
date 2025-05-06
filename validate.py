@@ -83,6 +83,7 @@ def main():
                     node_feat_config=dataset_parameters['node_features'],
                     edge_feat_config=dataset_parameters['edge_features'],
                     normalize=dataset_parameters['normalize'],
+                    logger=logger,
                     transform=transform,
                     debug=args.debug)
         data_loader = DataLoader(dataset, batch_size=1)

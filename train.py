@@ -97,6 +97,7 @@ def main():
                         node_feat_config=dataset_parameters['node_features'],
                         edge_feat_config=dataset_parameters['edge_features'],
                         normalize=dataset_parameters['normalize'],
+                        logger=logger,
                         transform=transform,
                         debug=args.debug)
             datasets[event_key] = DataLoader(dataset, batch_size=train_config['batch_size'])
