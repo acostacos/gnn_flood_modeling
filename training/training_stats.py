@@ -28,9 +28,6 @@ class TrainingStats:
     def update_additional_info(self, info: Dict):
         self.train_info.update(info)
 
-    def get_train_loss(self):
-        return self.train_epoch_loss
-
     def print_stats_summary(self):
         if len(self.train_epoch_loss) > 0:
             self.log(f'Final training Loss: {self.train_epoch_loss[-1]:.4f}')

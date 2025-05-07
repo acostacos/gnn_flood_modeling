@@ -140,7 +140,7 @@ def main():
                     logger.log(f'Number of trainable model parameters: {num_train_params}')
 
             train_datasets = [d for k, d in datasets.items() if k != event_key]
-            logger.log(f"Training with {', '.join([k for k in datasets.keys() if k != event_key])}. Testing on {event_key}.")
+            logger.log(f"Training with {', '.join([k for k in datasets.keys() if k != event_key])}. For testing on {event_key}.")
 
             trainer = trainer_factory(args.model, train_datasets=train_datasets, model=model,
                                             loss_func=loss_func, optimizer=optimizer, num_epochs=train_config['num_epochs'],
