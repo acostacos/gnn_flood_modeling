@@ -3,15 +3,11 @@ import os
 import time
 
 from torch import Tensor
-from torch.nn.functional import relu
-from typing import Callable
 from utils import Logger
 from utils.metric_utils import RMSE, MAE, NSE, CSI
 
 class ValidationStats:
-    def __init__(self, denormalize_func: Callable = None, logger: Logger = None):
-        self.data_is_normalized = denormalize_func is not None
-        self.denormalize_func = denormalize_func
+    def __init__(self, logger: Logger = None):
         self.val_start_time = None
         self.val_end_time = None
         self.pred_list = []
@@ -45,15 +41,7 @@ class ValidationStats:
     def update_stats_for_epoch(self,
                                pred: Tensor,
                                target: Tensor,
-                               use_water_depth: bool = True,
-                               elevation: Tensor = None,
                                water_threshold: float = 0.3):
-        if use_water_depth:
-            if elevation is None:
-                raise ValueError("If use_water_depth is True, elevation must be provided.")
-
-            pred, target = self.convert_water_level_to_water_depth(pred, target, elevation)
-
         self.pred_list.append(pred)
         self.target_list.append(target)
 
