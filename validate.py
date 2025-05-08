@@ -11,7 +11,7 @@ from data import InMemoryFloodEventDataset
 from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import ToUndirected, Compose
 from train import model_factory
-from utils import Logger, file_utils, metric_utils
+from utils import Logger, file_utils
 from validation import AutoregressionValidator
 
 torch.serialization.add_safe_globals([datetime])

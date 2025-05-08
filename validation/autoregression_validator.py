@@ -49,7 +49,7 @@ class AutoregressionValidator:
                 if use_water_depth:
                     # Get elevation from the graph data
                     ELEVATION_IDX = 2
-                    elevation = graph.x[:, ELEVATION_IDX][:, None].cpu()
+                    elevation = graph.x[:, ELEVATION_IDX][:, None]
                     pred, label = self.convert_water_level_to_water_depth(pred, label, elevation)
 
                 self.stats.update_stats_for_epoch(pred.cpu(),
