@@ -1,7 +1,6 @@
 import torch
 
 from torch.nn import Module
-from torch.nn.functional import relu
 from torch_geometric.loader import DataLoader
 from typing import Callable
 from utils import Logger
@@ -69,7 +68,7 @@ class AutoregressionValidator:
             elevation = self.denormalize_func('elevation', elevation)
 
         # Ensure water depth is non-negative
-        water_depth_pred = relu(pred - elevation)
-        water_depth_target = relu(target - elevation)
+        water_depth_pred = torch.clip(pred - elevation, min=0)
+        water_depth_target = torch.clip(target - elevation, min=0)
 
         return water_depth_pred, water_depth_target
