@@ -52,7 +52,7 @@ class GAT(BaseModel):
 
         # Encoder
         if self.with_encoder:
-            self.node_encoder = make_mlp(input_size=self.input_node_features, output_size=hidden_features,
+            self.node_encoder = make_mlp(input_size=input_features, output_size=hidden_features,
                                                 hidden_size=hidden_features, num_layers=encoder_layers,
                                             activation=encoder_activation, device=self.device)
 
@@ -64,7 +64,7 @@ class GAT(BaseModel):
 
         # Decoder
         if self.with_decoder:
-            self.node_decoder = make_mlp(input_size=hidden_features, output_size=self.output_node_features,
+            self.node_decoder = make_mlp(input_size=hidden_features, output_size=output_features,
                                         hidden_size=hidden_features, num_layers=encoder_layers,
                                         activation=decoder_activation, bias=False, device=self.device)
 
