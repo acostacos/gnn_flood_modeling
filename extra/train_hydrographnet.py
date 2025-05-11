@@ -34,6 +34,7 @@ def main():
     train_ids_file = "0_train.txt"
     num_input_features = 16
     num_output_features = 1
+    num_epochs = 100
 
     args = parse_args()
     logger = Logger(log_path=args.log_path)
@@ -87,7 +88,7 @@ def main():
 
         train_datasets = [DataLoader(dataset, batch_size=batch_size)]
         trainer = trainer_factory(args.model, train_datasets=train_datasets, model=model,
-                                        loss_func=loss_func, optimizer=optimizer, num_epochs=train_config['num_epochs'],
+                                        loss_func=loss_func, optimizer=optimizer, num_epochs=num_epochs,
                                         device=args.device, debug=args.debug, logger=logger)
         trainer.train()
         trainer.print_stats_summary()
