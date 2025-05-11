@@ -180,3 +180,5 @@ logs/
 saved_models/
 saved_metrics/
 visualize/plots/
+slurm_logs/
+slurm-*.out
