@@ -103,7 +103,6 @@ class HydroGraphNetFloodEventDataset(Dataset):
             "manning": manning,
             "flow_accum": flow_accum,
             "infiltration": infiltration,
-
             "area_denorm": area_denorm,
             "edge_index": edge_index,
             "edge_features": edge_features,
@@ -187,72 +186,51 @@ class HydroGraphNetFloodEventDataset(Dataset):
                     self.sample_index.append((h_idx, t))
             self.length = len(self.sample_index)
         elif self.split == "test":
-            for dyn in self.dynamic_data:
+            for h_idx, dyn in enumerate(self.dynamic_data):
                 T = dyn["water_depth"].shape[0]
                 if T < self.n_time_steps + self.rollout_length:
                     raise ValueError(
                         f"Hydrograph {dyn['hydro_id']} does not have enough time steps for the specified rollout_length."
                     )
-            self.length = len(self.dynamic_data)
+                for t in range(self.rollout_length):
+                    self.sample_index.append((h_idx, t))
+            self.length = len(self.sample_index)
 
     def len(self) -> int:
         return self.length
 
     def get(self, idx: int) -> Data:
         sd = self.static_data
-        if self.split != "test":
-            # Training mode: use sliding window sample.
-            hydro_idx, t_idx = self.sample_index[idx]
-            dyn = self.dynamic_data[hydro_idx]
+        hydro_idx, t_idx = self.sample_index[idx]
+        dyn = self.dynamic_data[hydro_idx]
 
-            # Determine the end index for the dynamic window.
-            end_index = t_idx + self.n_time_steps
+        # Determine the end index for the dynamic window.
+        end_index = t_idx + self.n_time_steps
 
-            # Compute node features and future flow/precipitation values.
-            node_features, future_flow, future_precip = self.create_node_features(
-                sd["xy_coords"], sd["area"], sd["elevation"], sd["slope"], sd["aspect"],
-                sd["curvature"], sd["manning"], sd["flow_accum"], sd["infiltration"],
-                dyn["water_depth"][t_idx:end_index, :],
-                dyn["volume"][t_idx:end_index, :],
-                dyn["precipitation"],
-                t_idx, self.n_time_steps, dyn["inflow_hydrograph"]
-            )
-            target_time = t_idx + self.n_time_steps
-            prev_time = target_time - 1
-            # Compute target differences for water depth and volume.
-            # target_depth = dyn["water_depth"][target_time, :] - dyn["water_depth"][prev_time, :]
-            # target_volume = dyn["volume"][target_time, :] - dyn["volume"][prev_time, :]
-            # target = np.stack([target_depth, target_volume], axis=1)
-            target = dyn["water_depth"][target_time, :][:, None]
+        # Compute node features and future flow/precipitation values.
+        node_features, future_flow, future_precip = self.create_node_features(
+            sd["xy_coords"], sd["area"], sd["elevation"], sd["slope"], sd["aspect"],
+            sd["curvature"], sd["manning"], sd["flow_accum"], sd["infiltration"],
+            dyn["water_depth"][t_idx:end_index, :],
+            dyn["volume"][t_idx:end_index, :],
+            dyn["precipitation"],
+            t_idx, self.n_time_steps, dyn["inflow_hydrograph"]
+        )
+        target_time = t_idx + self.n_time_steps
+        prev_time = target_time - 1
+        # Compute target differences for water depth and volume.
+        # target_depth = dyn["water_depth"][target_time, :] - dyn["water_depth"][prev_time, :]
+        # target_volume = dyn["volume"][target_time, :] - dyn["volume"][prev_time, :]
+        # target = np.stack([target_depth, target_volume], axis=1)
+        target = dyn["water_depth"][target_time, :][:, None]
 
-            # Create the graph with PyTorch Geometric.
-            x = torch.FloatTensor(node_features)
-            edge_index = torch.IntTensor(sd["edge_index"])
-            edge_attr = torch.FloatTensor(sd["edge_features"])
-            y = torch.FloatTensor(target)
-            g = Data(x=x, edge_attr=edge_attr, edge_index=edge_index, y=y)
-            return g
-        else:
-            # Test mode: Each sample returns a graph and a rollout data dictionary.
-            dyn = self.dynamic_data[idx]
-            node_features, _, _ = self.create_node_features(
-                sd["xy_coords"], sd["area"], sd["elevation"], sd["slope"], sd["aspect"],
-                sd["curvature"], sd["manning"], sd["flow_accum"], sd["infiltration"],
-                dyn["water_depth"][0:self.n_time_steps, :],
-                dyn["volume"][0:self.n_time_steps, :],
-                dyn["precipitation"],
-                0, self.n_time_steps, dyn["inflow_hydrograph"]
-            )
-            # Add target for future water depth. Specific to our GNN model
-            target = dyn["water_depth"][target_time, :][:, None]
-
-            # Create the graph with PyTorch Geometric.
-            x = torch.FloatTensor(node_features)
-            edge_index = torch.IntTensor(sd["edge_index"])
-            edge_attr = torch.FloatTensor(sd["edge_features"])
-            y = torch.FloatTensor(target)
-            g = Data(x=x, edge_attr=edge_attr, edge_index=edge_index, y=y)
-            return g
+        # Create the graph with PyTorch Geometric.
+        x = torch.FloatTensor(node_features)
+        edge_index = torch.IntTensor(sd["edge_index"])
+        edge_attr = torch.FloatTensor(sd["edge_features"])
+        y = torch.FloatTensor(target)
+        g = Data(x=x, edge_attr=edge_attr, edge_index=edge_index, y=y)
+        return g
 
     def save_norm_stats(self, stats: dict, filename: str) -> None:
         filepath = os.path.join(self.data_dir, filename)

@@ -8,9 +8,7 @@ import os
 import yaml
 
 from argparse import ArgumentParser, Namespace
-from datetime import datetime
-from torch_geometric.loader import DataLoader
-from train import get_loss_func_param, model_factory, trainer_factory
+from train import model_factory
 from utils import Logger, file_utils
 from validation.validation_stats import ValidationStats
 
@@ -18,13 +16,13 @@ from hydrographnet_flood_event_dataset import HydroGraphNetFloodEventDataset
 
 def parse_args() -> Namespace:
     parser = ArgumentParser(description='')
-    parser.add_argument("--config_path", type=str, default='configs/config.yaml', help='Path to training config file')
-    parser.add_argument("--model", type=str, default='NodeEdgeGNN', help='Model to use for validation')
+    parser.add_argument("--config_path", type=str, default='../configs/config.yaml', help='Path to training config file')
+    parser.add_argument("--model", type=str, default='GCN', help='Model to use for validation')
     parser.add_argument('--model_path', type=str, default=None, help='Path to trained model file')
     parser.add_argument("--seed", type=int, default=42, help='Seed for random number generators')
     parser.add_argument("--device", type=str, default=('cuda' if torch.cuda.is_available() else 'cpu'), help='Device to run on')
     parser.add_argument("--log_path", type=str, default=None, help='Path to log file')
-    parser.add_argument("--output_dir", type=str, default='saved_metrics', help='Path to directory to save metrics')
+    parser.add_argument("--output_dir", type=str, default='../saved_metrics', help='Path to directory to save metrics')
     parser.add_argument("--debug", type=bool, default=False, help='Add debug messages to output')
     return parser.parse_args()
 
@@ -60,7 +58,7 @@ def main():
                                                  split="test",
                                                  rollout_length=rollout_length,
                                                  logger=logger)
-        logger.log(f'Loaded dataset with {len(dataset)} graphs.')
+        logger.log(f'Loaded dataset with {len(dataset)} total timesteps.')
 
         # Load model
         model_key = 'NodeEdgeGNN' if args.model in ['NodeEdgeGNN_NoPassing'] else args.model
@@ -74,21 +72,22 @@ def main():
         model.load_state_dict(torch.load(args.model_path, weights_only=True))
 
         # Loop over each test hydrograph.
+        WATER_DEPTH_IDX = 12
         all_rmse_all = []
+        global_idx = 0
+
         model.eval()
-        for idx in range(len(dataset)):
-            event_dataset = dataset[idx]
-            validation_stats = ValidationStats(logger=logger)
+        with torch.no_grad():
+            while global_idx < len(dataset):
+                rmse_list = [] # RMSE at each rollout step.
+                validation_stats = ValidationStats(logger=logger)
 
-            WATER_DEPTH_IDX = 13
-            wd_sliding_window = event_dataset[0].x.clone()[:, WATER_DEPTH_IDX:(WATER_DEPTH_IDX+n_time_steps)]
-            wd_sliding_window = wd_sliding_window.to(args.device)
-
-            with torch.no_grad():
-                rmse_list = []           # RMSE at each rollout step.
-                dataloader = DataLoader(event_dataset, batch_size=1)
+                wd_sliding_window = dataset[global_idx].x.clone()[:, WATER_DEPTH_IDX:(WATER_DEPTH_IDX+n_time_steps)]
+                wd_sliding_window = wd_sliding_window.to(args.device)
                 validation_stats.start_validate()
-                for graph in dataloader:
+
+                for idx in range(rollout_length):
+                    graph = dataset[idx]
                     graph = graph.to(args.device)
                     graph.x[:, WATER_DEPTH_IDX:(WATER_DEPTH_IDX+n_time_steps)] = wd_sliding_window
 
@@ -96,26 +95,28 @@ def main():
                     wd_sliding_window = torch.concat((wd_sliding_window[:, 1:], pred), dim=1)
 
                     label = graph.y
-
                     validation_stats.update_stats_for_epoch(pred.cpu(),
                                                     label.cpu(),
                                                     water_threshold=0.05)
 
-                    rmse = torch.sqrt(torch.mean((pred.squeeze(1) - label) ** 2)).item()
+                    rmse = torch.sqrt(torch.mean((pred - label) ** 2)).item()
                     rmse_list.append(rmse)
 
+                    global_idx += 1
+
                 validation_stats.end_validate()
-            
-            all_rmse_all.append(rmse_list)
-            mean_rmse_sample = sum(rmse_list) / len(rmse_list)
-            sample_id = event_dataset.dynamic_data[idx].get('hydro_id', idx)
-            print(f"Hydrograph {sample_id}: Mean RMSE = {mean_rmse_sample:.4f}")
 
-            validation_stats.print_stats_summary()
+                all_rmse_all.append(rmse_list)
+                mean_rmse_sample = sum(rmse_list) / len(rmse_list)
+                dyn_data_idx = (global_idx // rollout_length) - 1
+                sample_id = dataset.dynamic_data[dyn_data_idx].get('hydro_id', idx)
+                print(f"Hydrograph {sample_id}: Mean RMSE = {mean_rmse_sample:.4f}")
 
-            save_stats_path = os.path.join(args.output_dir, f'{args.model}_{sample_id}_metrics.npz') if args.output_dir is not None else None
-            if save_stats_path is not None:
-                validation_stats.save_stats(save_stats_path)
+                validation_stats.print_stats_summary()
+
+                save_stats_path = os.path.join(args.output_dir, f'{args.model}_{sample_id}_metrics.npz') if args.output_dir is not None else None
+                if save_stats_path is not None:
+                    validation_stats.save_stats(save_stats_path)
 
         # HydroGraphNet validation stats.
         all_rmse_tensor = torch.tensor(all_rmse_all)

@@ -58,7 +58,7 @@ def main():
                                                  hydrograph_ids_file=train_ids_file,
                                                  split="train",
                                                  logger=logger)
-        logger.log(f'Loaded dataset with {len(dataset)} graphs.')
+        logger.log(f'Loaded dataset with {len(dataset)} total timesteps.')
 
         # Training
         model_key = 'NodeEdgeGNN' if args.model in ['NodeEdgeGNN_NoPassing'] else args.model
