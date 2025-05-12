@@ -43,8 +43,8 @@ dataset_parameters:
     velocity      : True    # Water velocity at each link
 
 training_parameters:
-  num_epochs      : 10            # Number of epochs
-  batch_size      : 32            # Batch size
+  num_epochs      : 20            # Number of epochs
+  batch_size      : 64            # Batch size
   learning_rate   : 0.007         # learning rate
   weight_decay    : 0             # weight decay
 
