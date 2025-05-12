@@ -225,10 +225,10 @@ class HydroGraphNetFloodEventDataset(Dataset):
         target = dyn["water_depth"][target_time, :][:, None]
 
         # Create the graph with PyTorch Geometric.
-        x = torch.FloatTensor(node_features)
-        edge_index = torch.IntTensor(sd["edge_index"])
-        edge_attr = torch.FloatTensor(sd["edge_features"])
-        y = torch.FloatTensor(target)
+        x = torch.Tensor(node_features).to(torch.float32)
+        edge_index = torch.Tensor(sd["edge_index"]).to(torch.int64)
+        edge_attr = torch.Tensor(sd["edge_features"]).to(torch.float32)
+        y = torch.Tensor(target).to(torch.float32)
         g = Data(x=x, edge_attr=edge_attr, edge_index=edge_index, y=y)
         return g
 
