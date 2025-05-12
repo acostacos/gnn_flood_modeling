@@ -19,7 +19,7 @@ torch.serialization.add_safe_globals([datetime])
 def parse_args() -> Namespace:
     parser = ArgumentParser(description='')
     parser.add_argument("--config_path", type=str, default='configs/config.yaml', help='Path to training config file')
-    parser.add_argument("--model", type=str, default='NodeEdgeGNN', help='Model to use for training')
+    parser.add_argument("--model", type=str, default='NodeEdgeGNN', help='Model to use for validation')
     parser.add_argument('--model_path', type=str, default=None, help='Path to trained model file')
     parser.add_argument("--seed", type=int, default=42, help='Seed for random number generators')
     parser.add_argument("--device", type=str, default=('cuda' if torch.cuda.is_available() else 'cpu'), help='Device to run on')
