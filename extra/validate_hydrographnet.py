@@ -87,7 +87,7 @@ def main():
                 validation_stats.start_validate()
 
                 for idx in range(rollout_length):
-                    graph = dataset[idx]
+                    graph = dataset[global_idx]
                     graph = graph.to(args.device)
                     graph.x[:, WATER_DEPTH_IDX:(WATER_DEPTH_IDX+n_time_steps)] = wd_sliding_window
 

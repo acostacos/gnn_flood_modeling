@@ -10,8 +10,8 @@ import yaml
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
 from torch_geometric.loader import DataLoader
-from train import get_loss_func_param, model_factory, trainer_factory
-from utils import Logger, file_utils
+from train import model_factory, trainer_factory
+from utils import Logger, file_utils, loss_func_utils
 
 from hydrographnet_flood_event_dataset import HydroGraphNetFloodEventDataset
 
@@ -68,7 +68,6 @@ def main():
         curr_date_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
         # Loss function
-        loss_func_config = config['loss_func_parameters'][model_key] if model_key in config['loss_func_parameters'] else {}
         train_config = config['training_parameters']
 
         model = model_factory(args.model,
@@ -80,7 +79,7 @@ def main():
             num_train_params = model.get_model_size()
             logger.log(f'Number of trainable model parameters: {num_train_params}')
 
-        loss_func = get_loss_func_param(args.model, **loss_func_config)
+        loss_func = loss_func_utils.get_loss_func('mse') # Overwrite loss function to MSE
         loss_func_name = loss_func.__name__ if hasattr(loss_func, '__name__') else loss_func.__class__.__name__
         logger.log(f"Using loss function: {loss_func_name}")
 
