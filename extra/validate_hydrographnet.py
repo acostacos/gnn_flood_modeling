@@ -92,6 +92,9 @@ def main():
                     graph.x[:, WATER_DEPTH_IDX:(WATER_DEPTH_IDX+n_time_steps)] = wd_sliding_window
 
                     pred = model(graph)
+
+                    # Clip to 0 for water depth
+                    pred = torch.clip(pred, min=0)
                     wd_sliding_window = torch.concat((wd_sliding_window[:, 1:], pred), dim=1)
 
                     label = graph.y
