@@ -93,11 +93,14 @@ def main():
 
                     pred = model(graph)
 
-                    # Clip to 0 for water depth
-                    pred = torch.clip(pred, min=0)
                     wd_sliding_window = torch.concat((wd_sliding_window[:, 1:], pred), dim=1)
 
                     label = graph.y
+
+                    # Clip to 0 for water depth. Ground truth contains negative values.
+                    pred = torch.clip(pred, min=0)
+                    label = torch.clip(label, min=0)
+
                     validation_stats.update_stats_for_epoch(pred.cpu(),
                                                     label.cpu(),
                                                     water_threshold=0.05)
