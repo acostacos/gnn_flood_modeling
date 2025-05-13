@@ -99,6 +99,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
             # Trim the data from the peak water level
             peak_water_level_ts = dynamic_nodes['water_depth'].sum(axis=1).argmax()
             last_ts = peak_water_level_ts + self.ts_from_peak_water_depth
+            timesteps = timesteps[:last_ts]
             dynamic_nodes = self._trim_features_from_peak_water_depth(dynamic_nodes, last_ts)
             dynamic_edges = self._trim_features_from_peak_water_depth(dynamic_edges, last_ts)
 
@@ -191,13 +192,20 @@ class InMemoryFloodEventDataset(InMemoryDataset):
         return timesteps, edge_index
 
     def _trim_features_from_peak_water_depth(self, feature_data: Dict[str, np.ndarray], last_ts: int) -> Dict[str, np.ndarray]:
-        for feature in feature_data.keys():
-            feature_data[feature] = feature_data[feature][:last_ts]
+        for feature, data in feature_data.items():
+            if self.normalize:
+                data = self._denormalize_features(feature, data)
 
+            data = data[:last_ts]
             self.feature_stats[feature] = {
-                'mean': feature_data[feature].mean().item(),
-                'std': feature_data[feature].std().item(),
+                'mean': data.mean().item(),
+                'std': data.std().item(),
             }
+
+            if self.normalize:
+                data = self._normalize_features(data)
+
+            feature_data[feature] = data
 
         return feature_data
 

@@ -47,7 +47,7 @@ class AutoregressionValidator:
                 wd_sliding_window = torch.concat((wd_sliding_window[:, 1:], pred), dim=1)
 
                 label = graph.y
-                pred = torch.clip(0, min=0) # Clip the prediction to be non-negative
+                pred, label = self.denormalize_water_depth(pred, label)
                 self.stats.update_stats_for_epoch(pred.cpu(),
                                                   label.cpu(),
                                                   water_threshold=0.05)
@@ -58,3 +58,14 @@ class AutoregressionValidator:
         self.stats.print_stats_summary()
         if save_stats_path is not None:
             self.stats.save_stats(save_stats_path)
+
+    def denormalize_water_depth(self, pred: torch.Tensor, target: torch.Tensor):
+        if self.data_is_normalized:
+            pred = self.denormalize_func('water_depth', pred)
+            target = self.denormalize_func('water_depth', target)
+
+        # Ensure water depth is non-negative
+        pred = torch.clip(pred, min=0)
+        target = torch.clip(target, min=0)
+
+        return pred, target   
