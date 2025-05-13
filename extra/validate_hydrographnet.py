@@ -97,8 +97,12 @@ def main():
 
                     label = graph.y
 
-                    # Clip to 0 for water depth. Ground truth contains negative values.
+                    # Clip negative values for water depth
+                    wd_mean = dataset.dynamic_stats["water_depth"]["mean"]
+                    wd_std = dataset.dynamic_stats["water_depth"]["std"]
+                    pred = dataset.denormalize(pred, wd_mean, wd_std)
                     pred = torch.clip(pred, min=0)
+                    label = dataset.denormalize(label, wd_mean, wd_std)
                     label = torch.clip(label, min=0)
 
                     validation_stats.update_stats_for_epoch(pred.cpu(),
