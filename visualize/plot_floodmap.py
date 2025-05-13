@@ -188,7 +188,8 @@ def main():
                 previous_timesteps=dataset_parameters['previous_timesteps'],
                 node_feat_config=dataset_parameters['node_features'],
                 edge_feat_config=dataset_parameters['edge_features'],
-                normalize=dataset_parameters['normalize'])
+                normalize=dataset_parameters['normalize'],
+                trim_from_peak_water_depth=dataset_parameters['trim_from_peak_water_depth'])
     dataset_info = file_utils.read_yaml_file(dataset_info_path)
 
     # Initialize model

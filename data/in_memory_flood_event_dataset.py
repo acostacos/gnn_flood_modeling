@@ -24,6 +24,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
                  node_feat_config: dict[str, bool] = {},
                  edge_feat_config: dict[str, bool] = {},
                  normalize: bool = False,
+                 trim_from_peak_water_depth: bool = False,
                  debug: bool = False,
                  logger: Logger = None,
                  transform=None,
@@ -54,6 +55,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
 
         # Initialize dataset variables
         self.previous_timesteps = previous_timesteps
+        self.ts_from_peak_water_depth = 50 if trim_from_peak_water_depth else None
         self.dataset_info = {
             'node_features': [],
             'edge_features': [],
@@ -63,6 +65,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
             'num_dynamic_edge_features': 0,
             'previous_timesteps': previous_timesteps,
             'is_normalized': normalize,
+            'ts_from_peak_water_depth': self.ts_from_peak_water_depth,
         }
         self.feature_stats = {}
         self._enforce_dataset_consistency()
@@ -91,6 +94,13 @@ class InMemoryFloodEventDataset(InMemoryDataset):
         dynamic_nodes = self._get_dynamic_node_features()
         static_edges = self._get_static_edge_features()
         dynamic_edges = self._get_dynamic_edge_features()
+
+        if self.ts_from_peak_water_depth is not None:
+            # Trim the data from the peak water level
+            peak_water_level_ts = dynamic_nodes['water_depth'].sum(axis=1).argmax()
+            last_ts = peak_water_level_ts + self.ts_from_peak_water_depth
+            dynamic_nodes = self._trim_features_from_peak_water_depth(dynamic_nodes, last_ts)
+            dynamic_edges = self._trim_features_from_peak_water_depth(dynamic_edges, last_ts)
 
         dataset = []
         for i in range(len(timesteps) - 1):
@@ -165,7 +175,8 @@ class InMemoryFloodEventDataset(InMemoryDataset):
         if (set(dataset_info['node_features']) != set(self.node_feature_list)
             or set(dataset_info['edge_features']) != set(self.edge_feature_list)
             or dataset_info['previous_timesteps'] != self.dataset_info['previous_timesteps']
-            or dataset_info['is_normalized'] != self.dataset_info['is_normalized']):
+            or dataset_info['is_normalized'] != self.dataset_info['is_normalized']
+            or dataset_info['ts_from_peak_water_depth'] != self.dataset_info['ts_from_peak_water_depth']):
             raise ValueError(f'Dataset features are inconsistent with previously loaded datasets. See {self.dataset_info_path}')
 
     def _get_graph_properties(self) -> Tuple[List, torch.Tensor]:
@@ -178,6 +189,17 @@ class InMemoryFloodEventDataset(InMemoryDataset):
             self.debug_helper.print_graph_properties(edge_index)
 
         return timesteps, edge_index
+
+    def _trim_features_from_peak_water_depth(self, feature_data: Dict[str, np.ndarray], last_ts: int) -> Dict[str, np.ndarray]:
+        for feature in feature_data.keys():
+            feature_data[feature] = feature_data[feature][:last_ts]
+
+            self.feature_stats[feature] = {
+                'mean': feature_data[feature].mean().item(),
+                'std': feature_data[feature].std().item(),
+            }
+
+        return feature_data
 
     def _get_timestep_data(self, feature_list: str, static_features: Dict[str, np.ndarray], dynamic_features: Dict[str, np.ndarray], timestep_idx: int) -> Tensor:
         """Returns the data for a specific timestep in the format [static_features, previous_dynamic_features, current_dynamic_features]"""
@@ -215,7 +237,7 @@ class InMemoryFloodEventDataset(InMemoryDataset):
         return torch.from_numpy(ts_dynamic_features)
     
     def _get_timestep_labels(self, node_dynamic_features: Dict[str, np.ndarray], edge_dynamic_features: Dict[str, np.ndarray], timestep_idx: int) -> Tuple[Tensor, Tensor]:
-        label_nodes = node_dynamic_features['water_level'][timestep_idx+1]
+        label_nodes = node_dynamic_features['water_depth'][timestep_idx+1]
         label_nodes = label_nodes[:, None] # Reshape to [num_nodes, 1]
         label_nodes = torch.from_numpy(label_nodes)
 
@@ -240,9 +262,16 @@ class InMemoryFloodEventDataset(InMemoryDataset):
                                   feature_type='static')
 
     def _get_dynamic_node_features(self) -> Dict[str, np.ndarray]:
+        def get_water_depth():
+            """Get water depth from water level and elevation"""
+            water_level = get_water_level(self.raw_paths[0])
+            elevation = get_cell_elevation(self.raw_paths[1])[None, :]
+            water_depth = np.clip(water_level - elevation, a_min=0, a_max=None)
+            return water_depth
+
         DYNAMIC_NODE_RETRIEVAL_MAP = {
             "rainfall": lambda: get_rainfall(self.raw_paths[0]),
-            "water_level": lambda: get_water_level(self.raw_paths[0]),
+            "water_depth": get_water_depth,
         }
 
         return self._get_features(feature_list=self.node_feature_list,

@@ -2,6 +2,7 @@ dataset_parameters:
   storage_mode: 'memory' # 'memory' or 'disk'
   previous_timesteps: 2
   normalize: True
+  trim_from_peak_water_depth: True
   dataset_info_path: 'data/datasets/hr/dataset_info.yaml'
   feature_stats_file: 'feature_stats.yaml'
 
@@ -32,7 +33,7 @@ dataset_parameters:
     roughness     : True    # Manning's roughness
     elevation     : True    # Node elevation
     rainfall      : True    # Rainfall added per interval at each node
-    water_level   : True    # Water level at each node
+    water_depth   : True    # Water depth at each node
 
   edge_features:
     direction_x   : False   # Link direction along x-axis

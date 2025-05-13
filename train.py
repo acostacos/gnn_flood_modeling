@@ -97,6 +97,7 @@ def main():
                         node_feat_config=dataset_parameters['node_features'],
                         edge_feat_config=dataset_parameters['edge_features'],
                         normalize=dataset_parameters['normalize'],
+                        trim_from_peak_water_depth=dataset_parameters['trim_from_peak_water_depth'],
                         logger=logger,
                         transform=transform,
                         debug=args.debug)
