@@ -97,8 +97,8 @@ class InMemoryFloodEventDataset(InMemoryDataset):
 
         if self.ts_from_peak_water_depth is not None:
             # Trim the data from the peak water level
-            peak_water_level_ts = dynamic_nodes['water_depth'].sum(axis=1).argmax()
-            last_ts = peak_water_level_ts + self.ts_from_peak_water_depth
+            peak_water_depth_ts = dynamic_nodes['water_depth'].sum(axis=1).argmax()
+            last_ts = peak_water_depth_ts + self.ts_from_peak_water_depth
             timesteps = timesteps[:last_ts]
             dynamic_nodes = self._trim_features_from_peak_water_depth(dynamic_nodes, last_ts)
             dynamic_edges = self._trim_features_from_peak_water_depth(dynamic_edges, last_ts)
