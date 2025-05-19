@@ -11,9 +11,9 @@ class NodeRegressionTrainer(BaseTrainer):
             running_loss = 0.0
 
             len_training_samples = 0
-            for dataset in self.train_datasets:
-                len_training_samples += len(dataset)
-                for batch in dataset:
+            for dataloader in self.train_datasets:
+                len_training_samples += len(dataloader.dataset)
+                for batch in dataloader:
                     self.optimizer.zero_grad()
 
                     batch = batch.to(self.device)

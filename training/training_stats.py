@@ -62,6 +62,7 @@ class TrainingStats:
 
         stats = {
             'train_epoch_loss': np.array(self.train_epoch_loss),
+            'additional_info': self.train_info,
         }
         np.savez(filepath, **stats)
         self.log(f'Saved training stats to: {filepath}')

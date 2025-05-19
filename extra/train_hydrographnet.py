@@ -10,10 +10,12 @@ import yaml
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
 from torch_geometric.loader import DataLoader
-from train import model_factory, trainer_factory, get_loss_func_w_param
+from train import model_factory, get_loss_func_w_param
+from training.training_stats import TrainingStats
 from utils import Logger, file_utils
 
 from hydrographnet_flood_event_dataset import HydroGraphNetFloodEventDataset
+from hydrographnet_utils import compute_physics_loss
 
 def parse_args() -> Namespace:
     parser = ArgumentParser(description='')
@@ -33,9 +35,13 @@ def main():
     data_dir = ""
     n_time_steps = 2
     train_ids_file = "0_train.txt"
+    use_physics_loss = True
     num_input_features = 16
-    num_output_features = 1
-    num_epochs = 100
+    num_output_features = 2 if use_physics_loss else 1 # Water depth and volume if using physics loss, water depth only otherwise
+    num_epochs = 1
+
+    if use_physics_loss:
+        assert batch_size == 1, 'Batch size must be 1 when using physics loss.'
 
     args = parse_args()
     logger = Logger(log_path=args.log_path)
@@ -58,8 +64,10 @@ def main():
                                                  k=4,
                                                  hydrograph_ids_file=train_ids_file,
                                                  split="train",
+                                                 return_physics=use_physics_loss,
                                                  logger=logger)
         logger.log(f'Loaded dataset with {len(dataset)} total timesteps.')
+        data_loader = DataLoader(dataset, batch_size=batch_size)
 
         # Training
         model_key = 'NodeEdgeGNN' if args.model in ['NodeEdgeGNN_NoPassing'] else args.model
@@ -89,15 +97,51 @@ def main():
 
         optimizer = torch.optim.Adam(model.parameters(), lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
 
-        train_datasets = [DataLoader(dataset, batch_size=batch_size)]
-        trainer = trainer_factory(args.model, train_datasets=train_datasets, model=model,
-                                        loss_func=loss_func, optimizer=optimizer, num_epochs=num_epochs,
-                                        device=args.device, debug=args.debug, logger=logger)
-        trainer.train()
-        trainer.print_stats_summary()
+        len_training_samples = len(dataset)
+        training_stats = TrainingStats(logger=logger)
+        training_stats.start_train()
+        for epoch in range(num_epochs):
+            model.train()
+            running_loss = 0.0
+            running_phy_loss = 0.0
+
+            for batch, physics_data in data_loader:
+                optimizer.zero_grad()
+
+                batch = batch.to(args.device)
+                pred = model(batch)
+
+                label = batch.y
+                loss = loss_func(pred, label)
+                running_loss += loss.item()
+
+                if use_physics_loss and len(physics_data) > 0:
+                    phy_loss = compute_physics_loss(pred, physics_data, batch)
+                    loss = loss + phy_loss # Physics loss weight = 1
+                    running_phy_loss += phy_loss.item()
+
+                loss.backward()
+                optimizer.step()
+
+            epoch_pred_loss = running_loss / len_training_samples
+            epoch_phy_loss = running_phy_loss / len_training_samples
+            epoch_total_loss = epoch_pred_loss + epoch_phy_loss
+            logger.log(f'Epoch [{epoch + 1}/{num_epochs}]:')
+            logger.log(f'\tPred Loss: {epoch_pred_loss:.4f}')
+            logger.log(f'\tPhysics Loss: {epoch_phy_loss:.4f}')
+            logger.log(f'\tTotal Loss: {epoch_total_loss:.4f}')
+            training_stats.add_train_loss(epoch_total_loss)
+
+        additional_info = {
+            'Final Pred Loss': epoch_pred_loss,
+            'Final Physics Loss': epoch_total_loss,
+        }
+        training_stats.update_additional_info(additional_info)
+        training_stats.end_train()
+        training_stats.print_stats_summary()
         if args.stats_dir is not None:
             saved_metrics_path = os.path.join(args.stats_dir, f'{args.model}_HydroGraphNet_train_metrics.npz')
-            trainer.save_training_stats(saved_metrics_path)
+            training_stats.save_stats(saved_metrics_path)
 
         if args.model_dir is not None:
             if not os.path.exists(args.model_dir):

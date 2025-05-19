@@ -6,7 +6,7 @@ import numpy as np
 from scipy.spatial import KDTree
 from tqdm import tqdm
 from torch_geometric.data import Dataset, Data
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, Literal
 from utils import Logger
 
 STATIC_NORM_STATS_FILE = "static_norm_stats.json"
@@ -24,7 +24,8 @@ class HydroGraphNetFloodEventDataset(Dataset):
                  n_time_steps: int = 2,
                  k: int = 4,
                  hydrograph_ids_file: Optional[str] = None,
-                 split: str = "train",
+                 split: Literal["train", "test"] = "train",
+                 return_physics: bool = False,
                  rollout_length: Optional[int] = None,
                  logger: Logger = None,
                  debug: bool = False,
@@ -43,6 +44,9 @@ class HydroGraphNetFloodEventDataset(Dataset):
         self.k = k
         self.hydrograph_ids_file = hydrograph_ids_file
         self.split = split
+
+        # return_physics is only used when split=="train"
+        self.return_physics = return_physics
 
         # rollout_length is only used when split=="test"
         self.rollout_length = rollout_length if rollout_length is not None else 0
@@ -222,7 +226,13 @@ class HydroGraphNetFloodEventDataset(Dataset):
         # target_depth = dyn["water_depth"][target_time, :] - dyn["water_depth"][prev_time, :]
         # target_volume = dyn["volume"][target_time, :] - dyn["volume"][prev_time, :]
         # target = np.stack([target_depth, target_volume], axis=1)
-        target = dyn["water_depth"][target_time, :][:, None]
+        if self.return_physics:
+            target_depth = dyn["water_depth"][target_time, :]
+            # Predict change in volume per timestep (since this is directly used in physics loss)
+            target_volume = dyn["volume"][target_time, :] - dyn["volume"][prev_time, :]
+            target = np.stack([target_depth, target_volume], axis=1)
+        else:
+            target = dyn["water_depth"][target_time, :][:, None]
 
         # Create the graph with PyTorch Geometric.
         x = torch.Tensor(node_features).to(torch.float32)
@@ -230,7 +240,69 @@ class HydroGraphNetFloodEventDataset(Dataset):
         edge_attr = torch.Tensor(sd["edge_features"]).to(torch.float32)
         y = torch.Tensor(target).to(torch.float32)
         g = Data(x=x, edge_attr=edge_attr, edge_index=edge_index, y=y)
-        return g
+
+        if self.split == 'test':
+            return g
+
+        if not self.return_physics:
+            return g, {}
+
+        # Return physics data if training and return_physics is True.
+        # Compute physics data in the denormalized domain.
+        past_volume = float(np.sum(dyn["volume"][prev_time, :]))
+        future_volume = (float(np.sum(dyn["volume"][target_time + 1, :]))
+                            if (target_time + 1 < dyn["volume"].shape[0])
+                            else float(np.sum(dyn["volume"][target_time, :])))
+        avg_inflow_norm = float((dyn["inflow_hydrograph"][prev_time] + dyn["inflow_hydrograph"][target_time]) / 2)
+        avg_precip_norm = float((dyn["precipitation"][prev_time] + dyn["precipitation"][target_time]) / 2)
+        denorm_avg_inflow = (avg_inflow_norm *
+                                self.dynamic_stats["inflow_hydrograph"]["std"] +
+                                self.dynamic_stats["inflow_hydrograph"]["mean"])
+        denorm_avg_precip = (avg_precip_norm *
+                                self.dynamic_stats["precipitation"]["std"] +
+                                self.dynamic_stats["precipitation"]["mean"])
+
+        # --- New: Compute next-step inflow and precipitation for physics loss term2 ---
+        if (target_time + 1) < dyn["inflow_hydrograph"].shape[0]:
+            next_inflow_norm = dyn["inflow_hydrograph"][target_time + 1]
+            next_precip_norm = dyn["precipitation"][target_time + 1]
+        else:
+            next_inflow_norm = dyn["inflow_hydrograph"][target_time]
+            next_precip_norm = dyn["precipitation"][target_time]
+        denorm_next_inflow = (next_inflow_norm *
+                                self.dynamic_stats["inflow_hydrograph"]["std"] +
+                                self.dynamic_stats["inflow_hydrograph"]["mean"])
+        denorm_next_precip = (next_precip_norm *
+                                self.dynamic_stats["precipitation"]["std"] +
+                                self.dynamic_stats["precipitation"]["mean"])
+
+        # Build the complete physics data dictionary.
+        full_physics_data = {
+            "flow_future": float(future_flow * self.dynamic_stats["inflow_hydrograph"]["std"] +
+                                    self.dynamic_stats["inflow_hydrograph"]["mean"]),
+            "precip_future": float(future_precip * self.dynamic_stats["precipitation"]["std"] +
+                                        self.dynamic_stats["precipitation"]["mean"]),
+            "past_volume": past_volume,
+            "future_volume": future_volume,
+            "avg_inflow": denorm_avg_inflow,
+            "avg_precipitation": denorm_avg_precip,
+            "next_inflow": denorm_next_inflow,
+            "next_precip": denorm_next_precip,
+            "volume_mean": float(self.dynamic_stats["volume"]["mean"]),
+            "volume_std": float(self.dynamic_stats["volume"]["std"]),
+            "inflow_mean": float(self.dynamic_stats["inflow_hydrograph"]["mean"]),
+            "inflow_std": float(self.dynamic_stats["inflow_hydrograph"]["std"]),
+            "precip_mean": float(self.dynamic_stats["precipitation"]["mean"]),
+            "precip_std": float(self.dynamic_stats["precipitation"]["std"]),
+            "num_nodes": float(sd["xy_coords"].shape[0]),
+            "area_sum": float(np.sum(sd["area_denorm"])),
+            "infiltration_area_sum": float(np.sum(
+                self.denormalize(sd["infiltration"],
+                                    self.static_stats["infiltration"]["mean"],
+                                    self.static_stats["infiltration"]["std"]) * sd["area_denorm"]
+            )) / 100.0
+        }
+        return g, full_physics_data
 
     def save_norm_stats(self, stats: dict, filename: str) -> None:
         filepath = os.path.join(self.data_dir, filename)
