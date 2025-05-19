@@ -12,9 +12,8 @@ class DualRegressionTrainer(BaseTrainer):
             running_node_loss = 0.0
             running_edge_loss = 0.0
 
-            len_training_samples = 0
+            num_batches = 0
             for dataloader in self.train_datasets:
-                len_training_samples += len(dataloader.dataset)
                 for batch in dataloader:
                     self.optimizer.zero_grad()
 
@@ -29,10 +28,11 @@ class DualRegressionTrainer(BaseTrainer):
                     node_loss, edge_loss = self.loss_func.get_loss_components()
                     running_node_loss += node_loss
                     running_edge_loss += edge_loss
+                    num_batches += 1
 
-            epoch_loss = running_loss / len_training_samples
-            epoch_node_loss = running_node_loss / len_training_samples
-            epoch_edge_loss = running_edge_loss / len_training_samples
+            epoch_loss = running_loss / num_batches
+            epoch_node_loss = running_node_loss / num_batches
+            epoch_edge_loss = running_edge_loss / num_batches
 
             self.stats.add_train_loss(epoch_loss)
             self.log(f'Epoch [{epoch + 1}/{self.num_epochs}]:')

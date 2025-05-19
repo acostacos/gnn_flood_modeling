@@ -10,9 +10,8 @@ class NodeRegressionTrainer(BaseTrainer):
             self.model.train()
             running_loss = 0.0
 
-            len_training_samples = 0
+            num_batches = 0
             for dataloader in self.train_datasets:
-                len_training_samples += len(dataloader.dataset)
                 for batch in dataloader:
                     self.optimizer.zero_grad()
 
@@ -25,8 +24,9 @@ class NodeRegressionTrainer(BaseTrainer):
                     self.optimizer.step()
 
                     running_loss += loss.item()
+                    num_batches += 1
 
-            epoch_loss = running_loss / len_training_samples
+            epoch_loss = running_loss / num_batches
             self.stats.add_train_loss(epoch_loss)
             self.log(f'Epoch [{epoch + 1}/{self.num_epochs}], Training Loss: {epoch_loss:.4f}')
 
