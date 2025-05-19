@@ -38,7 +38,8 @@ def main():
     use_physics_loss = True
     num_input_features = 16
     num_output_features = 2 if use_physics_loss else 1 # Water depth and volume if using physics loss, water depth only otherwise
-    num_epochs = 1
+    num_epochs = 100
+    learning_rate = 0.0001
 
     if use_physics_loss:
         assert batch_size == 1, 'Batch size must be 1 when using physics loss.'
@@ -95,7 +96,7 @@ def main():
             num_train_params = model.get_model_size()
             logger.log(f'Number of trainable model parameters: {num_train_params}')
 
-        optimizer = torch.optim.Adam(model.parameters(), lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=train_config['weight_decay'])
 
         training_stats = TrainingStats(logger=logger)
         training_stats.start_train()
