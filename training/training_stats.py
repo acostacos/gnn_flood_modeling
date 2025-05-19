@@ -1,3 +1,4 @@
+import os
 import time
 import matplotlib.pyplot as plt
 import numpy as np
@@ -53,3 +54,14 @@ class TrainingStats:
         plt.ylabel('Loss')
         plt.title('Training Loss')
         plt.show()
+
+    def save_stats(self, filepath: str):
+        dirname = os.path.dirname(filepath)
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+
+        stats = {
+            'train_epoch_loss': np.array(self.train_epoch_loss),
+        }
+        np.savez(filepath, **stats)
+        self.log(f'Saved training stats to: {filepath}')

@@ -7,7 +7,7 @@ import yaml
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
 from data import InMemoryFloodEventDataset
-from models import GAT, GCN, GraphSAGE, GIN, GNNNoPassing, MLP, NodeEdgeGNN, NodeEdgeGNNNoPassing, SWEGNN
+from models import GAT, GCN, GraphSAGE, GIN, GNNNoPassing, MLP, NodeEdgeGNN, NodeEdgeGNNNoPassing
 from training import NodeRegressionTrainer, DualRegressionTrainer
 from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import ToUndirected, Compose
@@ -26,6 +26,7 @@ def parse_args() -> Namespace:
     parser.add_argument("--device", type=str, default=('cuda' if torch.cuda.is_available() else 'cpu'), help='Device to run on')
     parser.add_argument("--log_path", type=str, default=None, help='Path to log file')
     parser.add_argument("--model_dir", type=str, default='saved_models', help='Path to directory to save trained models')
+    parser.add_argument("--stats_dir", type=str, default=None, help='Path to directory to save training stats')
     parser.add_argument("--debug", type=bool, default=False, help='Add debug messages to output')
     return parser.parse_args()
 
@@ -34,8 +35,6 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
         return NodeEdgeGNN(**kwargs)
     if model_name == 'NodeEdgeGNN_NoPassing':
         return NodeEdgeGNNNoPassing(**kwargs)
-    if model_name == 'SWEGNN':
-        return SWEGNN(**kwargs)
     if model_name == 'GCN':
         return GCN(**kwargs)
     if model_name == 'GAT':
@@ -50,7 +49,7 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
         return MLP(**kwargs)
     raise ValueError(f'Invalid model name: {model_name}')
 
-def get_loss_func_param(model_name: str, **kwargs) -> Callable | torch.nn.Module:
+def get_loss_func_w_param(model_name: str, **kwargs) -> Callable | torch.nn.Module:
     if 'NodeEdgeGNN' in model_name:
         return get_loss_func(loss_func_name='combined_l1', **kwargs)
     return get_loss_func('l1')
@@ -125,17 +124,19 @@ def main():
                 raise ValueError(f'Test dataset {event_key} not found in datasets. Check your config file.')
 
         # Loss function
-        loss_func_config = config['loss_func_parameters'][model_key] if model_key in config['loss_func_parameters'] else {}
+        loss_func_key = model_params.pop('loss_func', None)
+        assert loss_func_key is not None, 'Loss function key not found in model parameters.'
+        loss_func_config = model_params.pop('loss_func_parameters') if 'loss_func_parameters' in model_params else {}
+        loss_func = get_loss_func_w_param(args.model, **loss_func_config)
+        if args.debug:
+            loss_func_name = loss_func.__name__ if hasattr(loss_func, '__name__') else loss_func.__class__.__name__
+            logger.log(f"Using loss function: {loss_func_name}")
 
         for i, event_key in enumerate(test_dataset_keys):
             model = model_factory(args.model, **model_params, **base_model_params)
-            loss_func = get_loss_func_param(args.model, **loss_func_config)
             optimizer = torch.optim.Adam(model.parameters(), lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
 
             if i == 0:
-                loss_func_name = loss_func.__name__ if hasattr(loss_func, '__name__') else loss_func.__class__.__name__
-                logger.log(f"Using loss function: {loss_func_name}")
-
                 if args.debug:
                     num_train_params = model.get_model_size()
                     logger.log(f'Number of trainable model parameters: {num_train_params}')
@@ -148,6 +149,9 @@ def main():
                                             device=args.device, debug=args.debug, logger=logger)
             trainer.train()
             trainer.print_stats_summary()
+            if args.stats_dir is not None:
+                saved_metrics_path = os.path.join(args.stats_dir, f'{args.model}_{event_key}_train_metrics.npz')
+                trainer.save_training_stats(saved_metrics_path)
 
             if args.model_dir is not None:
                 if not os.path.exists(args.model_dir):

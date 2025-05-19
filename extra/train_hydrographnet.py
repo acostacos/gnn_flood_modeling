@@ -10,8 +10,8 @@ import yaml
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
 from torch_geometric.loader import DataLoader
-from train import model_factory, trainer_factory
-from utils import Logger, file_utils, loss_func_utils
+from train import model_factory, trainer_factory, get_loss_func_w_param
+from utils import Logger, file_utils
 
 from hydrographnet_flood_event_dataset import HydroGraphNetFloodEventDataset
 
@@ -23,6 +23,7 @@ def parse_args() -> Namespace:
     parser.add_argument("--device", type=str, default=('cuda' if torch.cuda.is_available() else 'cpu'), help='Device to run on')
     parser.add_argument("--log_path", type=str, default=None, help='Path to log file')
     parser.add_argument("--model_dir", type=str, default='../saved_models', help='Path to directory to save trained models')
+    parser.add_argument("--stats_dir", type=str, default=None, help='Path to directory to save training stats')
     parser.add_argument("--debug", type=bool, default=False, help='Add debug messages to output')
     return parser.parse_args()
 
@@ -69,6 +70,13 @@ def main():
 
         # Loss function
         train_config = config['training_parameters']
+        loss_func_key = model_params.pop('loss_func', None)
+        assert loss_func_key is not None, 'Loss function key not found in model parameters.'
+        loss_func_config = model_params.pop('loss_func_parameters') if 'loss_func_parameters' in model_params else {}
+        loss_func = get_loss_func_w_param(args.model, **loss_func_config)
+        if args.debug:
+            loss_func_name = loss_func.__name__ if hasattr(loss_func, '__name__') else loss_func.__class__.__name__
+            logger.log(f"Using loss function: {loss_func_name}")
 
         model = model_factory(args.model,
                               input_features=num_input_features,
@@ -79,10 +87,6 @@ def main():
             num_train_params = model.get_model_size()
             logger.log(f'Number of trainable model parameters: {num_train_params}')
 
-        loss_func = loss_func_utils.get_loss_func('mse') # Overwrite loss function to MSE
-        loss_func_name = loss_func.__name__ if hasattr(loss_func, '__name__') else loss_func.__class__.__name__
-        logger.log(f"Using loss function: {loss_func_name}")
-
         optimizer = torch.optim.Adam(model.parameters(), lr=train_config['learning_rate'], weight_decay=train_config['weight_decay'])
 
         train_datasets = [DataLoader(dataset, batch_size=batch_size)]
@@ -91,6 +95,9 @@ def main():
                                         device=args.device, debug=args.debug, logger=logger)
         trainer.train()
         trainer.print_stats_summary()
+        if args.stats_dir is not None:
+            saved_metrics_path = os.path.join(args.stats_dir, f'{args.model}_HydroGraphNet_train_metrics.npz')
+            trainer.save_training_stats(saved_metrics_path)
 
         if args.model_dir is not None:
             if not os.path.exists(args.model_dir):

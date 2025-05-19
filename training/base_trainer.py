@@ -40,7 +40,10 @@ class BaseTrainer:
         return self.stats.print_stats_summary()
 
     def plot_train_loss(self):
-        return self.stats.plot_train_loss()
+        self.stats.plot_train_loss()
+
+    def save_training_stats(self, filepath: str):
+        self.stats.save_stats(filepath)
 
     def print_memory_usage(self, epoch: int):
         self.log(f'Usage Statistics (epoch {epoch+1}): ')

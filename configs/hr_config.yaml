@@ -49,11 +49,6 @@ training_parameters:
   learning_rate   : 0.007         # learning rate
   weight_decay    : 0             # weight decay
 
-loss_func_parameters:
-  NodeEdgeGNN:
-    node_weight: 0.5      # Scale for water level loss
-    edge_weight: 0.5      # Scale for velocity loss
-
 model_parameters:
   NodeEdgeGNN:
     hidden_features: 32
@@ -65,18 +60,10 @@ model_parameters:
     encoder_activation: 'prelu'
     decoder_layers: 2
     decoder_activation: 'prelu'
-
-  SWEGNN:
-    hidden_features: 32
-    num_layers: 2
-    num_hops: 8
-    mlp_layers: 2
-    activation: 'prelu'
-    residual: True
-    encoder_layers: 2
-    encoder_activation: 'prelu'
-    decoder_layers: 2
-    decoder_activation: 'prelu'
+    loss_func: 'l1'
+    loss_func_parameters:
+      node_weight: 0.5      # Scale for water level loss
+      edge_weight: 0.5      # Scale for velocity loss
 
   GCN:
     hidden_features: 32
@@ -87,6 +74,7 @@ model_parameters:
     encoder_activation: 'prelu'
     decoder_layers: 2
     decoder_activation: 'prelu'
+    loss_func: 'l1'
 
   GAT:
     hidden_features: 32
@@ -102,6 +90,7 @@ model_parameters:
     encoder_activation: 'prelu'
     decoder_layers: 2
     decoder_activation: 'prelu'
+    loss_func: 'l1'
 
   GIN:
     hidden_features: 32
@@ -115,6 +104,7 @@ model_parameters:
     encoder_activation: null
     decoder_layers: 0
     decoder_activation: null
+    loss_func: 'l1'
 
   GraphSAGE:
     hidden_features: 32
@@ -130,6 +120,7 @@ model_parameters:
     encoder_activation: 'prelu'
     decoder_layers: 2
     decoder_activation: 'prelu'
+    loss_func: 'l1'
 
   GNNNoPassing:
     hidden_features: 32
@@ -141,9 +132,11 @@ model_parameters:
     encoder_activation: 'prelu'
     decoder_layers: 2
     decoder_activation: 'prelu'
+    loss_func: 'l1'
 
   MLP:
     num_layers: 2
     activation: 'prelu'
     bias: True
     residual: True
+    loss_func: 'l1'
