@@ -94,6 +94,10 @@ def main():
         model_key = 'NodeEdgeGNN' if args.model in ['NodeEdgeGNN_NoPassing'] else args.model
         model_params = config['model_parameters'][model_key]
 
+        # Remove loss function parameters
+        model_params.pop('loss_func', None)
+        model_params.pop('loss_func_parameters', None)
+
         previous_timesteps = dataset_info['previous_timesteps']
         static_node_features = dataset_info['num_static_node_features']
         dynamic_node_features = dataset_info['num_dynamic_node_features']

@@ -64,6 +64,10 @@ def main():
         model_key = 'NodeEdgeGNN' if args.model in ['NodeEdgeGNN_NoPassing'] else args.model
         model_params = config['model_parameters'][model_key]
 
+        # Remove loss function parameters
+        model_params.pop('loss_func', None)
+        model_params.pop('loss_func_parameters', None)
+
         model = model_factory(args.model,
                               input_features=num_input_features,
                               output_features=num_output_features,
