@@ -41,9 +41,6 @@ def main():
     num_epochs = 100
     learning_rate = 0.0001
 
-    if use_physics_loss:
-        assert batch_size == 1, 'Batch size must be 1 when using physics loss.'
-
     args = parse_args()
     logger = Logger(log_path=args.log_path)
 
@@ -110,6 +107,8 @@ def main():
                 optimizer.zero_grad()
 
                 batch = batch.to(args.device)
+                if physics_data is not None:
+                    physics_data = {k: v.to(args.device) for k, v in physics_data.items()}
                 pred = model(batch)
 
                 label = batch.y
