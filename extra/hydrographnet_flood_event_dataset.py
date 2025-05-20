@@ -44,8 +44,6 @@ class HydroGraphNetFloodEventDataset(Dataset):
         self.k = k
         self.hydrograph_ids_file = hydrograph_ids_file
         self.split = split
-
-        # return_physics is only used when split=="train"
         self.return_physics = return_physics
 
         # rollout_length is only used when split=="test"

@@ -31,8 +31,9 @@ def main():
     data_dir = ""
     n_time_steps = 2
     test_ids_file = "0_test.txt"
+    use_physics_loss = True
     num_input_features = 16
-    num_output_features = 1
+    num_output_features = 2 if use_physics_loss else 1 # Water depth and volume if using physics loss, water depth only otherwise
     rollout_length = 30
 
     args = parse_args()
@@ -56,6 +57,7 @@ def main():
                                                  k=4,
                                                  hydrograph_ids_file=test_ids_file,
                                                  split="test",
+                                                 return_physics=use_physics_loss,
                                                  rollout_length=rollout_length,
                                                  logger=logger)
         logger.log(f'Loaded dataset with {len(dataset)} total timesteps.')
@@ -77,6 +79,7 @@ def main():
 
         # Loop over each test hydrograph.
         WATER_DEPTH_IDX = 12
+        VOLUME_IDX = WATER_DEPTH_IDX + n_time_steps
         all_rmse_all = []
         global_idx = 0
 
@@ -88,16 +91,23 @@ def main():
 
                 wd_sliding_window = dataset[global_idx].x.clone()[:, WATER_DEPTH_IDX:(WATER_DEPTH_IDX+n_time_steps)]
                 wd_sliding_window = wd_sliding_window.to(args.device)
+                if use_physics_loss:
+                    v_sliding_window = dataset[global_idx].x.clone()[:, VOLUME_IDX:(VOLUME_IDX+n_time_steps)]
+                    v_sliding_window = v_sliding_window.to(args.device)
                 validation_stats.start_validate()
 
                 for idx in range(rollout_length):
                     graph = dataset[global_idx]
                     graph = graph.to(args.device)
                     graph.x[:, WATER_DEPTH_IDX:(WATER_DEPTH_IDX+n_time_steps)] = wd_sliding_window
+                    if use_physics_loss:
+                        graph.x[:, VOLUME_IDX:(VOLUME_IDX+n_time_steps)] = v_sliding_window
 
                     pred = model(graph)
 
                     wd_sliding_window = torch.concat((wd_sliding_window[:, 1:], pred), dim=1)
+                    if use_physics_loss:
+                        v_sliding_window = torch.concat((v_sliding_window[:, 1:], pred), dim=1)
 
                     label = graph.y
 
