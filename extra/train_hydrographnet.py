@@ -125,19 +125,22 @@ def main():
                 optimizer.step()
                 num_batches += 1
 
-            epoch_pred_loss = running_loss / num_batches
-            epoch_phy_loss = running_phy_loss / num_batches
-            epoch_total_loss = epoch_pred_loss + epoch_phy_loss
             logger.log(f'Epoch [{epoch + 1}/{num_epochs}]:')
+            epoch_pred_loss = running_loss / num_batches
             logger.log(f'\tPred Loss: {epoch_pred_loss:.4f}')
-            logger.log(f'\tPhysics Loss: {epoch_phy_loss:.4f}')
-            logger.log(f'\tTotal Loss: {epoch_total_loss:.4f}')
+            if use_physics_loss:
+                epoch_phy_loss = running_phy_loss / num_batches
+                logger.log(f'\tPhysics Loss: {epoch_phy_loss:.4f}')
+                epoch_total_loss = epoch_pred_loss + epoch_phy_loss
+                logger.log(f'\tTotal Loss: {epoch_total_loss:.4f}')
             training_stats.add_train_loss(epoch_total_loss)
 
         additional_info = {
             'Final Pred Loss': epoch_pred_loss,
-            'Final Physics Loss': epoch_total_loss,
         }
+        if use_physics_loss:
+            additional_info['Final Physics Loss'] = epoch_phy_loss
+
         training_stats.update_additional_info(additional_info)
         training_stats.end_train()
         training_stats.print_stats_summary()
