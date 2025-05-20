@@ -105,9 +105,12 @@ def main():
 
                     pred = model(graph)
 
-                    wd_sliding_window = torch.concat((wd_sliding_window[:, 1:], pred), dim=1)
                     if use_physics_loss:
-                        v_sliding_window = torch.concat((v_sliding_window[:, 1:], pred), dim=1)
+                        wd_sliding_window = torch.concat((wd_sliding_window[:, 1:], pred[:, 0:1]), dim=1)
+                        new_volume = v_sliding_window[:, 0:1] + pred[:, 1:2] # Predict volume change so we need to add it to the previous volume.
+                        v_sliding_window = torch.concat((v_sliding_window[:, -1:], new_volume), dim=1)
+                    else:
+                        wd_sliding_window = torch.concat((wd_sliding_window[:, 1:], pred), dim=1)
 
                     label = graph.y
 
