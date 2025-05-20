@@ -114,6 +114,15 @@ def main():
 
                     label = graph.y
 
+
+                    rmse = torch.sqrt(torch.mean((pred - label) ** 2)).item()
+                    rmse_list.append(rmse)
+
+                    if use_physics_loss:
+                        # Only use water depth for stats calculation
+                        pred = pred[:, 0:1]
+                        label = label[:, 0:1]
+
                     # Clip negative values for water depth
                     wd_mean = dataset.dynamic_stats["water_depth"]["mean"]
                     wd_std = dataset.dynamic_stats["water_depth"]["std"]
@@ -125,9 +134,6 @@ def main():
                     validation_stats.update_stats_for_epoch(pred.cpu(),
                                                     label.cpu(),
                                                     water_threshold=0.05)
-
-                    rmse = torch.sqrt(torch.mean((pred - label) ** 2)).item()
-                    rmse_list.append(rmse)
 
                     global_idx += 1
 
