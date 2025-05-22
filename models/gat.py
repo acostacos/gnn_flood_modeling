@@ -14,19 +14,20 @@ class GAT(BaseModel):
                  input_features: int = None,
                  output_features: int = None,
                  hidden_features: int = None,
+                 use_edge_features: bool = False,
+                 input_edge_features: int = None,
                  num_layers: int = 1,
                  activation: str = 'prelu',
                  residual: bool = True,
-                 encoding: bool = False, # If encoder, add residual and activation for last layer
 
                  # Attention Parameters
                  num_heads: int = 1,
-                 nhead_out: int = None,
                  concat: bool = True,
                  dropout: float = 0.0,
+                 add_self_loops: bool = True,
                  negative_slope: float = 0.2,
+                 attn_bias: bool = True,
                  attn_residual: bool = True,
-
 
                  # Encoder Decoder Parameters
                  encoder_layers: int = 0,
@@ -38,29 +39,35 @@ class GAT(BaseModel):
         super().__init__(**base_model_kwargs)
         self.with_encoder = encoder_layers > 0
         self.with_decoder = decoder_layers > 0
+        self.use_edge_features = use_edge_features
 
         if input_features is None:
             input_features = self.input_node_features
         if output_features is None:
             output_features = self.output_node_features
-        # if nhead_out is None:
-        #     nhead_out = num_heads
-
+        if self.use_edge_features and input_edge_features is None:
+            input_edge_features = self.input_edge_features
 
         input_size = hidden_features if self.with_encoder else input_features
         output_size = hidden_features if self.with_decoder else output_features
+        edge_dim = hidden_features if self.with_encoder else input_edge_features
 
         # Encoder
         if self.with_encoder:
             self.node_encoder = make_mlp(input_size=input_features, output_size=hidden_features,
                                                 hidden_size=hidden_features, num_layers=encoder_layers,
                                             activation=encoder_activation, device=self.device)
+            if self.use_edge_features:
+                self.edge_encoder = make_mlp(input_size=input_edge_features, output_size=hidden_features,
+                                             hidden_size=hidden_features, num_layers=encoder_layers,
+                                             activation=encoder_activation, device=self.device)
 
         self.convs = make_gnn(input_size=input_size, output_size=output_size,
                               hidden_size=hidden_features, num_layers=num_layers,
-                              conv='gat', activation=activation, device=self.device,
-                              heads=num_heads, concat=concat, dropout=dropout, negative_slope=negative_slope,
-                              residual=attn_residual)
+                              conv='gat', activation=activation, use_edge_attr=self.use_edge_features,
+                              device=self.device, heads=num_heads, edge_dim=edge_dim,
+                              concat=concat, dropout=dropout, add_self_loops=add_self_loops,
+                              negative_slope=negative_slope, bias=attn_bias, residual=attn_residual)
 
         # Decoder
         if self.with_decoder:
@@ -73,12 +80,19 @@ class GAT(BaseModel):
 
     def forward(self, graph: Data) -> Tensor:
         x, edge_index = graph.x.clone(), graph.edge_index.clone()
+        if self.use_edge_features:
+            edge_attr = graph.edge_attr.clone()
         x0 = x
 
         if self.with_encoder:
             x = self.node_encoder(x)
+            if self.use_edge_features:
+                edge_attr = self.edge_encoder(edge_attr)
 
-        x = self.convs(x, edge_index)
+        if self.use_edge_features:
+            x = self.convs(x, edge_index, edge_attr)
+        else:
+            x = self.convs(x, edge_index)
 
         if self.with_decoder:
             x = self.node_decoder(x)
