@@ -37,6 +37,7 @@ def main():
     train_ids_file = "0_train.txt"
     use_physics_loss = True
     num_input_features = 16
+    num_edge_features = 3
     num_output_features = 2 if use_physics_loss else 1 # Water depth and volume if using physics loss, water depth only otherwise
     num_epochs = 100
     learning_rate = 0.0001
@@ -83,6 +84,9 @@ def main():
         if args.debug:
             loss_func_name = loss_func.__name__ if hasattr(loss_func, '__name__') else loss_func.__class__.__name__
             logger.log(f"Using loss function: {loss_func_name}")
+
+        if 'use_edge_features' in model_params and model_params['use_edge_features']:
+            model_params['input_edge_features'] = num_edge_features
 
         model = model_factory(args.model,
                               input_features=num_input_features,
