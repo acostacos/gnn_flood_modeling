@@ -126,12 +126,12 @@ def main():
 
             logger.log(f'Epoch [{epoch + 1}/{num_epochs}]:')
             epoch_pred_loss = running_loss / num_batches
-            logger.log(f'\tPred Loss: {epoch_pred_loss:.4f}')
+            logger.log(f'\tPred Loss: {epoch_pred_loss:.4e}')
             if use_physics_loss:
                 epoch_phy_loss = running_phy_loss / num_batches
-                logger.log(f'\tPhysics Loss: {epoch_phy_loss:.4f}')
+                logger.log(f'\tPhysics Loss: {epoch_phy_loss:.4e}')
                 epoch_total_loss = epoch_pred_loss + epoch_phy_loss
-                logger.log(f'\tTotal Loss: {epoch_total_loss:.4f}')
+                logger.log(f'\tTotal Loss: {epoch_total_loss:.4e}')
             training_stats.add_train_loss(epoch_total_loss)
 
         additional_info = {
