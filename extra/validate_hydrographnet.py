@@ -80,6 +80,7 @@ def main():
                               device=args.device,
                               **model_params)
         model.load_state_dict(torch.load(args.model_path, weights_only=True))
+        logger.log(f'Loaded model: {args.model}')
 
         # Loop over each test hydrograph.
         WATER_DEPTH_IDX = 12

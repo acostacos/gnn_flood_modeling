@@ -11,9 +11,7 @@ from models import GAT, GCN, GraphSAGE, GIN, GNNNoPassing, MLP, NodeEdgeGNN, Nod
 from training import NodeRegressionTrainer, DualRegressionTrainer
 from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import ToUndirected, Compose
-from typing import Callable
-from utils import Logger, file_utils
-from utils.loss_func_utils import get_loss_func
+from utils import Logger, file_utils, loss_func_utils
 
 torch.serialization.add_safe_globals([datetime])
 
@@ -48,11 +46,6 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
     if model_name == 'MLP':
         return MLP(**kwargs)
     raise ValueError(f'Invalid model name: {model_name}')
-
-def get_loss_func_w_param(model_name: str, **kwargs) -> Callable | torch.nn.Module:
-    if 'NodeEdgeGNN' in model_name:
-        return get_loss_func(loss_func_name='combined_l1', **kwargs)
-    return get_loss_func('l1')
 
 def trainer_factory(model_name: str, **kwargs):
     if 'NodeEdgeGNN' in model_name:
@@ -127,10 +120,10 @@ def main():
         loss_func_key = model_params.pop('loss_func', None)
         assert loss_func_key is not None, 'Loss function key not found in model parameters.'
         loss_func_config = model_params.pop('loss_func_parameters') if 'loss_func_parameters' in model_params else {}
-        loss_func = get_loss_func_w_param(args.model, **loss_func_config)
-        if args.debug:
-            loss_func_name = loss_func.__name__ if hasattr(loss_func, '__name__') else loss_func.__class__.__name__
-            logger.log(f"Using loss function: {loss_func_name}")
+        loss_func = loss_func_utils.get_loss_func(loss_func_key, **loss_func_config)
+
+        loss_func_name = loss_func.__name__ if hasattr(loss_func, '__name__') else loss_func.__class__.__name__
+        logger.log(f"Using loss function: {loss_func_name}")
 
         for i, event_key in enumerate(test_dataset_keys):
             model = model_factory(args.model, **model_params, **base_model_params)

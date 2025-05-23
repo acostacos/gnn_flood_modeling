@@ -23,7 +23,6 @@ class GAT(BaseModel):
 
                  # Attention Parameters
                  num_heads: int = 1,
-                 concat: bool = True,
                  dropout: float = 0.0,
                  add_self_loops: bool = True,
                  negative_slope: float = 0.2,
@@ -64,7 +63,6 @@ class GAT(BaseModel):
 
         conv_kwargs = {
             'heads': num_heads,
-            'concat': concat,
             'dropout': dropout,
             'add_self_loops': add_self_loops,
             'negative_slope': negative_slope,
@@ -94,8 +92,6 @@ class GAT(BaseModel):
         is_multihead = heads > 1
 
         if num_layers == 1:
-            if is_multihead:
-                assert conv_kwargs.get('concat', False), 'If multihead attention is used, concat must be True for single layer'
             return GATLayer(input_size, output_size, activation, device, **conv_kwargs)
 
         layer_schema = 'x, edge_index -> x' if not use_edge_attr else 'x, edge_index, edge_attr -> x'
@@ -114,11 +110,10 @@ class GAT(BaseModel):
                           heads=heads, **conv_kwargs), layer_schema)
             ) # Hidden Layers
 
-        concat_kwargs = conv_kwargs.pop('concat', True)
-        concat = concat_kwargs if not is_multihead else False
+        concat = not is_multihead
         layers.append(
             (GATLayer((hidden_size * heads), output_size, activation, use_edge_attr, device,
-                      heads=heads, **conv_kwargs, concat=concat), layer_schema)
+                      heads=heads, concat=concat, **conv_kwargs), layer_schema)
         ) # Output Layer
         return PygSequential(input_schema, layers)
 

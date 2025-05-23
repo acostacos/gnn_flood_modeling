@@ -10,9 +10,9 @@ import yaml
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
 from torch_geometric.loader import DataLoader
-from train import model_factory, get_loss_func_w_param
+from train import model_factory
 from training.training_stats import TrainingStats
-from utils import Logger, file_utils
+from utils import Logger, file_utils, loss_func_utils
 
 from hydrographnet_flood_event_dataset import HydroGraphNetFloodEventDataset
 from hydrographnet_utils import compute_physics_loss
@@ -80,10 +80,10 @@ def main():
         loss_func_key = model_params.pop('loss_func', None)
         assert loss_func_key is not None, 'Loss function key not found in model parameters.'
         loss_func_config = model_params.pop('loss_func_parameters') if 'loss_func_parameters' in model_params else {}
-        loss_func = get_loss_func_w_param(args.model, **loss_func_config)
-        if args.debug:
-            loss_func_name = loss_func.__name__ if hasattr(loss_func, '__name__') else loss_func.__class__.__name__
-            logger.log(f"Using loss function: {loss_func_name}")
+        loss_func = loss_func_utils.get_loss_func(loss_func_key, **loss_func_config)
+
+        loss_func_name = loss_func.__name__ if hasattr(loss_func, '__name__') else loss_func.__class__.__name__
+        logger.log(f"Using loss function: {loss_func_name}")
 
         if 'use_edge_features' in model_params and model_params['use_edge_features']:
             model_params['input_edge_features'] = num_edge_features
