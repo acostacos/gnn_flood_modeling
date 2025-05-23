@@ -51,7 +51,6 @@ class GAT(BaseModel):
 
         input_size = hidden_features if self.with_encoder else input_features
         output_size = hidden_features if self.with_decoder else output_features
-        edge_dim = hidden_features if self.with_encoder else input_edge_features
 
         # Encoder
         if self.with_encoder:
@@ -65,7 +64,6 @@ class GAT(BaseModel):
 
         conv_kwargs = {
             'heads': num_heads,
-            'edge_dim': edge_dim,
             'concat': concat,
             'dropout': dropout,
             'add_self_loops': add_self_loops,
@@ -73,6 +71,9 @@ class GAT(BaseModel):
             'bias': attn_bias,
             'residual': attn_residual,
         }
+        if self.use_edge_features:
+            edge_dim = hidden_features if self.with_encoder else input_edge_features
+            conv_kwargs['edge_dim'] = edge_dim
         self.convs = self._make_gnn(input_size=input_size, output_size=output_size,
                               hidden_size=hidden_features, num_layers=num_layers,
                               activation=activation, use_edge_attr=self.use_edge_features,
