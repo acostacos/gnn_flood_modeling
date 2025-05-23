@@ -32,10 +32,10 @@ def parse_args() -> Namespace:
 def main():
     # Constants
     batch_size = 1
-    data_dir = ""
+    data_dir = "C:\\Users\\Carlo\\Documents\\School\\Masters\\NUS\\Dissertation\\HydroGraphNet\\outputs_phy\\data"
     n_time_steps = 2
-    train_ids_file = "0_train.txt"
-    use_physics_loss = True
+    train_ids_file = "0_dummy_train.txt"
+    use_physics_loss = False
     num_input_features = 16
     num_edge_features = 3
     num_output_features = 2 if use_physics_loss else 1 # Water depth and volume if using physics loss, water depth only otherwise
@@ -44,6 +44,8 @@ def main():
 
     args = parse_args()
     logger = Logger(log_path=args.log_path)
+
+    args.model = 'GAT'
 
     try:
         logger.log('================================================')
@@ -136,7 +138,7 @@ def main():
                 logger.log(f'\tPhysics Loss: {epoch_phy_loss:.4e}')
                 epoch_total_loss = epoch_pred_loss + epoch_phy_loss
                 logger.log(f'\tTotal Loss: {epoch_total_loss:.4e}')
-            training_stats.add_train_loss(epoch_total_loss)
+            training_stats.add_train_loss(epoch_pred_loss if not use_physics_loss else epoch_total_loss)
 
         additional_info = {
             'Final Pred Loss': epoch_pred_loss,
