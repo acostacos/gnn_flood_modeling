@@ -18,25 +18,23 @@ def make_mlp(input_size: int, output_size: int, hidden_size: int = None,
 
 def make_gnn(input_size: int, output_size: int, hidden_size: int = None,
              num_layers: int = 1, conv: str = 'gcn',
-             activation: str = None, use_edge_attr: bool = False, device: str = 'cpu', **conv_kwargs) -> Module:
+             activation: str = None, device: str = 'cpu', **conv_kwargs) -> Module:
     if num_layers == 1:
         return GNNLayer(input_size, output_size, conv, activation, device, **conv_kwargs)
 
     hidden_size = hidden_size if hidden_size is not None else (input_size * 2)
-    layer_schema = 'x, edge_index -> x' if not use_edge_attr else 'x, edge_index, edge_attr -> x'
-    input_schema = 'x, edge_index' if not use_edge_attr else 'x, edge_index, edge_attr'
     layers = []
     layers.append(
-        (GNNLayer(input_size, hidden_size, conv, activation, use_edge_attr, device, **conv_kwargs), layer_schema)
+        (GNNLayer(input_size, hidden_size, conv, activation, device, **conv_kwargs), 'x, edge_index -> x')
     ) # Input Layer
     for _ in range(num_layers-2):
         layers.append(
-            (GNNLayer(hidden_size, hidden_size, conv, activation, use_edge_attr, device, **conv_kwargs), layer_schema)
+            (GNNLayer(hidden_size, hidden_size, conv, activation, device, **conv_kwargs), 'x, edge_index -> x')
         ) # Hidden Layers
     layers.append(
-        (GNNLayer(hidden_size, output_size, conv, activation, use_edge_attr, device, **conv_kwargs), layer_schema)
+        (GNNLayer(hidden_size, output_size, conv, activation, device, **conv_kwargs), 'x, edge_index -> x')
     ) # Output Layer
-    return PygSequential(input_schema, layers)
+    return PygSequential('x, edge_index', layers)
 
 def get_activation_func(name: str, device: str = 'cpu') -> Module:
     if name == 'relu':
@@ -69,31 +67,23 @@ class GNNLayer(Module):
                  out_features: int,
                  conv: str = 'gcn',
                  activation: str = None,
-                 use_edge_attr: bool = False,
                  device: str = 'cpu',
                  **conv_kwargs):
         super().__init__()
         self.conv = self._get_conv(conv, in_features, out_features, **conv_kwargs).to(device)
         if activation is not None:
             self.activation = get_activation_func(activation, device=device)
-        self.use_edge_attr = use_edge_attr
 
     def _get_conv(self, conv: str, in_features: int, out_features: int, **conv_kwargs) -> Module:
         if conv == 'gcn':
             return GCNConv(in_channels=in_features, out_channels=out_features, **conv_kwargs)
-        if conv == 'gat':
-            return GATConv(in_channels=in_features, out_channels=out_features, **conv_kwargs)
         if conv == 'sage':
             in_features = (-1, -1) if in_features is None else in_features
             return SAGEConv(in_channels=in_features, out_channels=out_features, **conv_kwargs)
         raise Exception(f'GNN Convolution {conv} is not implemented.')
 
-    def forward(self, x: Tensor, edge_index: Tensor, edge_attr: Tensor = None) -> Tensor:
-        if self.use_edge_attr:
-            x = self.conv(x, edge_index, edge_attr)
-        else:
-            x = self.conv(x, edge_index)
-
+    def forward(self, x: Tensor, edge_index: Tensor) -> Tensor:
+        x = self.conv(x, edge_index)
         if hasattr(self, 'activation'):
             x = self.activation(x)
         return x
