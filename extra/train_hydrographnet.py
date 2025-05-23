@@ -32,9 +32,9 @@ def parse_args() -> Namespace:
 def main():
     # Constants
     batch_size = 1
-    data_dir = "C:\\Users\\Carlo\\Documents\\School\\Masters\\NUS\\Dissertation\\HydroGraphNet\\outputs_phy\\data"
+    data_dir = ""
     n_time_steps = 2
-    train_ids_file = "0_dummy_train.txt"
+    train_ids_file = "0_train.txt"
     use_physics_loss = False
     num_input_features = 16
     num_edge_features = 3
@@ -44,8 +44,6 @@ def main():
 
     args = parse_args()
     logger = Logger(log_path=args.log_path)
-
-    args.model = 'GAT'
 
     try:
         logger.log('================================================')
