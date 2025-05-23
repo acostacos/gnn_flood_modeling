@@ -35,7 +35,7 @@ def main():
     data_dir = ""
     n_time_steps = 2
     train_ids_file = "0_train.txt"
-    use_physics_loss = False
+    use_physics_loss = True
     num_input_features = 16
     num_edge_features = 3
     num_output_features = 2 if use_physics_loss else 1 # Water depth and volume if using physics loss, water depth only otherwise
