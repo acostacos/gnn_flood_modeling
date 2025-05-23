@@ -104,17 +104,21 @@ class GAT(BaseModel):
 
         layers = []
         layers.append(
-            (GATLayer(input_size, hidden_size, activation, use_edge_attr, device, **conv_kwargs), layer_schema)
+            (GATLayer(input_size, hidden_size, activation, use_edge_attr, device,
+                      heads=heads, **conv_kwargs), layer_schema)
         ) # Input Layer
 
         for _ in range(num_layers-2):
             layers.append(
-                (GATLayer((hidden_size * heads), hidden_size, activation, use_edge_attr, device, **conv_kwargs), layer_schema)
+                (GATLayer((hidden_size * heads), hidden_size, activation, use_edge_attr, device,
+                          heads=heads, **conv_kwargs), layer_schema)
             ) # Hidden Layers
 
-        concat = conv_kwargs.pop('concat', True) if not is_multihead else False
+        concat_kwargs = conv_kwargs.pop('concat', True)
+        concat = concat_kwargs if not is_multihead else False
         layers.append(
-            (GATLayer((hidden_size * heads), output_size, activation, use_edge_attr, device, **conv_kwargs, concat=concat), layer_schema)
+            (GATLayer((hidden_size * heads), output_size, activation, use_edge_attr, device,
+                      heads=heads, **conv_kwargs, concat=concat), layer_schema)
         ) # Output Layer
         return PygSequential(input_schema, layers)
 
