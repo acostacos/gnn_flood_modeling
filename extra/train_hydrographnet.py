@@ -40,7 +40,7 @@ def main():
     num_edge_features = 3
     num_output_features = 2 if use_physics_loss else 1 # Water depth and volume if using physics loss, water depth only otherwise
     num_epochs = 100
-    learning_rate = 0.0001
+    learning_rate = 0.007
 
     args = parse_args()
     logger = Logger(log_path=args.log_path)
