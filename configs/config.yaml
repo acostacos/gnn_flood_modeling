@@ -76,33 +76,17 @@ model_parameters:
     decoder_activation: 'prelu'
     loss_func: 'mse'
 
-  # GAT:
-  #   hidden_features: 32
-  #   use_edge_features: False
-  #   num_layers: 2
-  #   activation: 'prelu'
-  #   residual: True
-  #   num_heads: 1
-  #   dropout: 0.0
-  #   add_self_loops: True
-  #   negative_slope: 0.2
-  #   attn_bias: True
-  #   attn_residual: True
-  #   encoder_layers: 2
-  #   encoder_activation: 'prelu'
-  #   decoder_layers: 2
-  #   decoder_activation: 'prelu'
-  #   loss_func: 'mse'
-
   GAT:
     hidden_features: 32
+    use_edge_features: False
     num_layers: 2
     activation: 'prelu'
     residual: True
     num_heads: 1
-    concat: True
     dropout: 0.0
+    add_self_loops: True
     negative_slope: 0.2
+    attn_bias: True
     attn_residual: True
     encoder_layers: 2
     encoder_activation: 'prelu'
