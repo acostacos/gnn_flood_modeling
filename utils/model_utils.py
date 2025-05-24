@@ -77,6 +77,8 @@ class GNNLayer(Module):
     def _get_conv(self, conv: str, in_features: int, out_features: int, **conv_kwargs) -> Module:
         if conv == 'gcn':
             return GCNConv(in_channels=in_features, out_channels=out_features, **conv_kwargs)
+        if conv == 'gat':
+            return GATConv(in_channels=in_features, out_channels=out_features, **conv_kwargs)
         if conv == 'sage':
             in_features = (-1, -1) if in_features is None else in_features
             return SAGEConv(in_channels=in_features, out_channels=out_features, **conv_kwargs)
