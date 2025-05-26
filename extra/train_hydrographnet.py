@@ -99,13 +99,13 @@ def main():
 
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=train_config['weight_decay'])
 
-        len_training_samples = len(dataset)
         training_stats = TrainingStats(logger=logger)
         training_stats.start_train()
         for epoch in range(num_epochs):
             model.train()
             running_loss = 0.0
             running_phy_loss = 0.0
+            num_batches = 0
 
             for batch, physics_data in data_loader:
                 optimizer.zero_grad()
@@ -126,12 +126,13 @@ def main():
 
                 loss.backward()
                 optimizer.step()
+                num_batches += 1
 
             logger.log(f'Epoch [{epoch + 1}/{num_epochs}]:')
-            epoch_pred_loss = running_loss / len_training_samples
+            epoch_pred_loss = running_loss / num_batches
             logger.log(f'\tPred Loss: {epoch_pred_loss:.4e}')
             if use_physics_loss:
-                epoch_phy_loss = running_phy_loss / len_training_samples
+                epoch_phy_loss = running_phy_loss / num_batches
                 logger.log(f'\tPhysics Loss: {epoch_phy_loss:.4e}')
                 epoch_total_loss = epoch_pred_loss + epoch_phy_loss
                 logger.log(f'\tTotal Loss: {epoch_total_loss:.4e}')
