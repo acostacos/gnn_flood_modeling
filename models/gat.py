@@ -28,6 +28,7 @@ class GAT(BaseModel):
                  negative_slope: float = 0.2,
                  attn_bias: bool = True,
                  attn_residual: bool = True,
+                 return_attn_weights: bool = False,
 
                  # Encoder Decoder Parameters
                  encoder_layers: int = 0,
@@ -40,6 +41,7 @@ class GAT(BaseModel):
         self.with_encoder = encoder_layers > 0
         self.with_decoder = decoder_layers > 0
         self.use_edge_features = use_edge_features
+        self.return_attn_weights = return_attn_weights
 
         if input_features is None:
             input_features = self.input_node_features
@@ -68,6 +70,7 @@ class GAT(BaseModel):
             'negative_slope': negative_slope,
             'bias': attn_bias,
             'residual': attn_residual,
+            'return_attn_weights': self.return_attn_weights,
         }
         if self.use_edge_features:
             edge_dim = hidden_features if self.with_encoder else input_edge_features
@@ -141,6 +144,14 @@ class GAT(BaseModel):
 
         return x
 
+    def get_rollout_attn_weights(self):
+        attn_weights = {}
+        for name, module in self.named_modules():
+            if isinstance(module, GATLayer) and hasattr(module, 'get_rollout_attn_weights'):
+                attn_weights[name] = module.get_rollout_attn_weights()
+        return attn_weights
+
+
 class GATLayer(Module):
     def __init__(self,
                  in_features: int,
@@ -148,19 +159,38 @@ class GATLayer(Module):
                  activation: str = None,
                  use_edge_attr: bool = False,
                  device: str = 'cpu',
+                 return_attn_weights: bool = False,
                  **conv_kwargs):
         super().__init__()
         self.conv = GATConv(in_channels=in_features, out_channels=out_features, **conv_kwargs).to(device)
         if activation is not None:
             self.activation = get_activation_func(activation, device=device)
         self.use_edge_attr = use_edge_attr
+        self.return_attn_weights = return_attn_weights
+        self.attn_weights = []
 
     def forward(self, x: Tensor, edge_index: Tensor, edge_attr: Tensor = None) -> Tensor:
+        kwargs = {
+            'x': x,
+            'edge_index': edge_index,
+        }
         if self.use_edge_attr:
-            x = self.conv(x, edge_index, edge_attr)
+            kwargs['edge_attr'] = edge_attr
+        if self.return_attn_weights:
+            kwargs['return_attention_weights'] = True
+
+        out = self.conv(**kwargs)
+        if self.return_attn_weights:
+            x, attn_out = out
+            attn_edge_index = attn_out[0].detach().cpu()
+            attn_weights = attn_out[1].detach().cpu()
+            self.attn_weights.append((attn_edge_index, attn_weights))
         else:
-            x = self.conv(x, edge_index)
+            x = out
 
         if hasattr(self, 'activation'):
             x = self.activation(x)
         return x
+
+    def get_rollout_attn_weights(self):
+        return self.attn_weights
