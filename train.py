@@ -7,7 +7,7 @@ import yaml
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
 from data import InMemoryFloodEventDataset
-from models import GAT, GCN, GraphSAGE, GIN, GNNNoPassing, MLP, NodeEdgeGNN, NodeEdgeGNNNoPassing
+from models import GAT, GCN, GraphSAGE, GIN, GNNNoPassing, MLP, NodeEdgeGNN, NodeEdgeGNNNoPassing, PINNGAT
 from training import NodeRegressionTrainer, DualRegressionTrainer
 from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import ToUndirected, Compose
@@ -37,6 +37,8 @@ def model_factory(model_name: str, **kwargs) -> torch.nn.Module:
         return GCN(**kwargs)
     if model_name == 'GAT':
         return GAT(**kwargs)
+    if model_name == 'PINNGAT':
+        return PINNGAT(**kwargs)
     if model_name == 'GIN':
         return GIN(**kwargs)
     if model_name == 'GraphSAGE':

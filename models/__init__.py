@@ -4,6 +4,7 @@ from .gin import GIN
 from .graph_sage import GraphSAGE
 from .mlp import MLP
 from .node_edge_gnn import NodeEdgeGNN
+from .pinn_attention import PINNGAT
 
 from .ablation.gnn_no_passing import GNNNoPassing
 from .ablation.node_edge_gnn_no_passing import NodeEdgeGNNNoPassing
